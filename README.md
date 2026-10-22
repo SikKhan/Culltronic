@@ -42,7 +42,7 @@ Open a folder, browse embedded JPEG previews instantly, mark colors and filter.
 
 ## Install & build
 
-**Download:** packages built before the rename use the `cullr` name; the next release uses `culltronic` as shown below. Grab a package for your distro from the [latest release](https://github.com/SikKhan/Culltronic/releases/latest):
+**Download:** packages from v0.1.1 onward use the `culltronic` name as shown below. Older releases use `cullr`. Grab a package for your distro from the [latest release](https://github.com/SikKhan/Culltronic/releases/latest):
 
 | Distro | Install |
 |---|---|
