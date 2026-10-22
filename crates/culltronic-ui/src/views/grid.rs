@@ -1212,7 +1212,12 @@ impl GridView {
     /// persist (single UPDATE) mirrored into the row so the strip dot
     /// refreshes immediately. Auto-advance then steps forward through the
     /// filtered order, exactly like the loupe's flow (SPEC §6).
-    fn label_cursor(&mut self, db: &culltronic_core::Db, cursor: usize, label: culltronic_core::Label) {
+    fn label_cursor(
+        &mut self,
+        db: &culltronic_core::Db,
+        cursor: usize,
+        label: culltronic_core::Label,
+    ) {
         let Some(&row) = self.view.get(cursor) else {
             return;
         };

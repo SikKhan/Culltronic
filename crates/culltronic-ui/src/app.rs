@@ -425,54 +425,55 @@ impl App {
         let noun = if count == 1 { "file" } else { "files" };
 
         let mut confirmed = false;
-        let dismissed = modals::draw_dialog(ctx, egui::Id::new("culltronic_export_confirm"), |ui| {
-            ui.label(
-                egui::RichText::new("Overwrite existing files?")
-                    .heading()
-                    .strong()
-                    .color(TEXT),
-            );
-            ui.add_space(8.0);
-            ui.horizontal_wrapped(|ui| {
-                ui.label(egui::RichText::new("The folder").color(TEXT));
-                ui.label(egui::RichText::new(folder_name).strong().color(ACCENT));
+        let dismissed =
+            modals::draw_dialog(ctx, egui::Id::new("culltronic_export_confirm"), |ui| {
+                ui.label(
+                    egui::RichText::new("Overwrite existing files?")
+                        .heading()
+                        .strong()
+                        .color(TEXT),
+                );
+                ui.add_space(8.0);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(egui::RichText::new("The folder").color(TEXT));
+                    ui.label(egui::RichText::new(folder_name).strong().color(ACCENT));
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "already contains {count} {noun} with these names:"
+                        ))
+                        .color(TEXT),
+                    );
+                });
+                ui.label(egui::RichText::new(names_preview).color(MUTED));
+                ui.add_space(6.0);
                 ui.label(
                     egui::RichText::new(format!(
-                        "already contains {count} {noun} with these names:"
+                        "Exporting will overwrite them with your copies of these {noun}."
                     ))
                     .color(TEXT),
                 );
-            });
-            ui.label(egui::RichText::new(names_preview).color(MUTED));
-            ui.add_space(6.0);
-            ui.label(
-                egui::RichText::new(format!(
-                    "Exporting will overwrite them with your copies of these {noun}."
-                ))
-                .color(TEXT),
-            );
-            ui.add_space(12.0);
-            ui.separator();
-            ui.add_space(8.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui
-                    .add(
-                        egui::Button::new(
-                            egui::RichText::new(format!("Overwrite {count} {noun}")).color(BG),
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(8.0);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add(
+                            egui::Button::new(
+                                egui::RichText::new(format!("Overwrite {count} {noun}")).color(BG),
+                            )
+                            .fill(ACCENT),
                         )
-                        .fill(ACCENT),
-                    )
-                    .clicked()
-                {
-                    confirmed = true;
-                }
-                if ui.button("Cancel").clicked() {
-                    return true;
-                }
-                false
-            })
-            .inner
-        });
+                        .clicked()
+                    {
+                        confirmed = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        return true;
+                    }
+                    false
+                })
+                .inner
+            });
 
         if confirmed || enter {
             if let Some(job) = self.pending_export.take() {
@@ -530,8 +531,8 @@ impl eframe::App for App {
 /// One scan pass over a folder: filesystem walk, index sync and recents
 /// stamp. Runs off the UI thread; failures become user-facing strings.
 fn scan_and_sync(db: &Db, root: &Path) -> Result<Vec<PhotoEntry>, String> {
-    let scanned =
-        culltronic_core::scan_folder(root, ScanOptions::default()).map_err(|error| error.to_string())?;
+    let scanned = culltronic_core::scan_folder(root, ScanOptions::default())
+        .map_err(|error| error.to_string())?;
     let entries = db
         .sync_scan(root, &scanned, ScanOptions::default())
         .map_err(|error| error.to_string())?;

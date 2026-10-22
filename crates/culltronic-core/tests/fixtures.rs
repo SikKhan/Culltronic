@@ -201,7 +201,8 @@ fn fixture_folder_should_ingest_to_an_ok_row_streaming_events() {
     std::fs::copy(&path, root.join(path.file_name().expect("fixture name"))).expect("copy");
 
     let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     db.sync_scan(&root, &scanned, culltronic_core::ScanOptions::default())
         .expect("sync");
     let (pipeline, events) =
@@ -249,7 +250,8 @@ fn fixture_first_thumb_should_land_within_the_cold_budget() {
     let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
 
     let started = Instant::now();
-    let scanned = culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
@@ -293,7 +295,8 @@ fn fixture_folder_should_ingest_every_file_through_the_pipeline() {
     }
     let scratch = TempDir::new().expect("scratch dir");
     let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
@@ -354,7 +357,8 @@ fn fixture_ingest_throughput_should_meet_the_spec_budget_for_its_media() {
     }
     let scratch = TempDir::new().expect("scratch dir");
     let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
