@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Cullr: a Photo Mechanic-style photo culling tool for RAW files (Linux-first, cross-platform via Rust). Open source, GPL-3.0-or-later. Full spec: `SPEC.md`.
+Culltronic: a Photo Mechanic-style photo culling tool for RAW files (Linux-first, cross-platform via Rust). Open source, GPL-3.0-or-later. Full spec: `SPEC.md`.
 
 ## Stack (decided)
 
@@ -14,8 +14,8 @@ Cullr: a Photo Mechanic-style photo culling tool for RAW files (Linux-first, cro
 
 Cargo workspace:
 
-- `crates/cullr-core/` — scanning, preview extraction, thumbnailing, SQLite index, color-label store. Must stay GUI-free.
-- `crates/cullr-ui/` — the eframe application.
+- `crates/culltronic-core/` — scanning, preview extraction, thumbnailing, SQLite index, color-label store. Must stay GUI-free.
+- `crates/culltronic-ui/` — the eframe application.
 
 (Planned structure as of project start; keep core/UI separation when adding code.)
 
@@ -28,7 +28,7 @@ Cargo workspace:
 
 ## Commands
 
-- Run app: `cargo run -p cullr-ui`
+- Run app: `cargo run -p culltronic-ui`
 - Tests: `cargo test --workspace`
 - Lint: `cargo clippy --workspace -- -D warnings`
 - Format: `cargo fmt --all`

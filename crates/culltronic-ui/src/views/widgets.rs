@@ -8,8 +8,8 @@
 
 use eframe::egui;
 
-use cullr_core::Db;
-use cullr_core::Label;
+use culltronic_core::Db;
+use culltronic_core::Label;
 
 use crate::theme;
 

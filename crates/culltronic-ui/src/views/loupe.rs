@@ -28,11 +28,11 @@
 
 use eframe::egui;
 
-use cullr_core::Db;
-use cullr_core::Label;
-use cullr_core::PhotoDetail;
-use cullr_core::PhotoEntry;
-use cullr_core::PhotoStatus;
+use culltronic_core::Db;
+use culltronic_core::Label;
+use culltronic_core::PhotoDetail;
+use culltronic_core::PhotoEntry;
+use culltronic_core::PhotoStatus;
 
 use crate::tex::{TexKey, TextureState, Textures};
 use crate::theme;
@@ -533,7 +533,7 @@ impl LoupeView {
     }
 }
 
-fn fetch_detail(db: &Db, id: cullr_core::PhotoId) -> Option<PhotoDetail> {
+fn fetch_detail(db: &Db, id: culltronic_core::PhotoId) -> Option<PhotoDetail> {
     match db.photo_detail(id) {
         Ok(detail) => detail,
         Err(error) => {
@@ -926,7 +926,7 @@ fn draw_position_overlay(
         rect.center().y,
     );
     match detail.map(|detail| detail.label) {
-        Some(label) if label != cullr_core::Label::None => {
+        Some(label) if label != culltronic_core::Label::None => {
             painter.circle_filled(dot_center, dot_diameter / 2.0, theme::label_color(label));
         }
         _ => {
@@ -1328,9 +1328,9 @@ mod tests {
 
     fn detail(fields: impl FnOnce(&mut PhotoDetail)) -> PhotoDetail {
         let mut detail = PhotoDetail {
-            id: cullr_core::PhotoId(1),
+            id: culltronic_core::PhotoId(1),
             rel_path: "IMG_0001.CR3".into(),
-            label: cullr_core::Label::None,
+            label: culltronic_core::Label::None,
             status: PhotoStatus::Ok,
             pixels: Some((6000, 4000)),
             orientation: 1,
@@ -1353,9 +1353,9 @@ mod tests {
 
     fn entry() -> PhotoEntry {
         PhotoEntry {
-            id: cullr_core::PhotoId(1),
+            id: culltronic_core::PhotoId(1),
             rel_path: "IMG_0001.CR3".into(),
-            label: cullr_core::Label::None,
+            label: culltronic_core::Label::None,
             status: PhotoStatus::Ok,
             pixels: Some((6000, 4000)),
             orientation: 1,

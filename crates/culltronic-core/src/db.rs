@@ -10,7 +10,7 @@
 //! non-UTF-8 file names.
 //!
 //! ```
-//! use cullr_core::{scan_folder, Db, ScanOptions};
+//! use culltronic_core::{scan_folder, Db, ScanOptions};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let dir = tempfile::tempdir()?;
@@ -109,7 +109,7 @@ pub enum DbError {
     /// A migration or statement failed.
     #[error(transparent)]
     Sql(#[from] rusqlite::Error),
-    /// The database file was written by a newer Cullr build; refusing to
+    /// The database file was written by a newer Culltronic build; refusing to
     /// touch it avoids corrupting a schema we do not understand.
     #[error("index database schema v{} is newer than supported v{}", .found, .supported)]
     FutureVersion {

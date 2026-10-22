@@ -35,7 +35,7 @@ use crossbeam_channel::{Receiver, Sender, TryRecvError, unbounded};
 use eframe::egui;
 use image::DynamicImage;
 
-use cullr_core::PhotoId;
+use culltronic_core::PhotoId;
 
 /// Byte ceiling for live textures (SPEC §8: 512 MB GPU texture budget).
 const BYTE_BUDGET: usize = 512 * 1024 * 1024;
@@ -289,7 +289,7 @@ impl Textures {
                 decoded: decoded_tx.clone(),
             };
             std::thread::Builder::new()
-                .name(format!("cullr-decode-{slot}"))
+                .name(format!("culltronic-decode-{slot}"))
                 .spawn(move || worker.run())
                 .map_err(|error| tracing::warn!(%error, "decode worker unavailable"))
                 // A missing worker degrades capacity, not correctness; the
@@ -1331,11 +1331,11 @@ mod tests {
     /// ceiling (release mode, like the other perf gates):
     ///
     /// ```text
-    /// CULLR_PERF=<dir> cargo test --release -p cullr-ui -- tex --ignored
+    /// CULLTRONIC_PERF=<dir> cargo test --release -p culltronic-ui -- tex --ignored
     /// ```
-    #[ignore = "perf gate: run with CULLR_PERF set, release mode"]
+    #[ignore = "perf gate: run with CULLTRONIC_PERF set, release mode"]
     fn ten_k_burst_scroll_should_keep_sync_under_the_stall_ceiling() {
-        let Some(scratch_base) = std::env::var_os("CULLR_PERF").map(std::path::PathBuf::from)
+        let Some(scratch_base) = std::env::var_os("CULLTRONIC_PERF").map(std::path::PathBuf::from)
         else {
             return;
         };
@@ -1420,11 +1420,11 @@ mod tests {
     /// resident). Release mode, like the other perf gates:
     ///
     /// ```text
-    /// CULLR_PERF=<dir> cargo test --release -p cullr-ui -- loupe --ignored
+    /// CULLTRONIC_PERF=<dir> cargo test --release -p culltronic-ui -- loupe --ignored
     /// ```
-    #[ignore = "perf gate: run with CULLR_PERF set, release mode"]
+    #[ignore = "perf gate: run with CULLTRONIC_PERF set, release mode"]
     fn loupe_open_should_meet_the_cold_and_warm_budgets() {
-        let Some(scratch_base) = std::env::var_os("CULLR_PERF").map(std::path::PathBuf::from)
+        let Some(scratch_base) = std::env::var_os("CULLTRONIC_PERF").map(std::path::PathBuf::from)
         else {
             return;
         };

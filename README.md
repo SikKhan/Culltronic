@@ -1,7 +1,12 @@
-# Cullr
+# Culltronic
 
-[![Release](https://img.shields.io/github/v/release/SikKhan/Cullr)](https://github.com/SikKhan/Cullr/releases/latest)
-[![CI](https://github.com/SikKhan/Cullr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SikKhan/Cullr/actions/workflows/ci.yml)
+Formerly Cullr. The cache and index remain in the platform cache directory's
+`cullr` folder so existing photo labels, rotations, and recent folders stay available.
+
+The screenshots below show the app before the rename.
+
+[![Release](https://img.shields.io/github/v/release/SikKhan/Culltronic)](https://github.com/SikKhan/Culltronic/releases/latest)
+[![CI](https://github.com/SikKhan/Culltronic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SikKhan/Culltronic/actions/workflows/ci.yml)
 
 Photo Mechanic-style culling for RAW photographs.
 Open a folder, browse embedded JPEG previews instantly, mark colors and filter.
@@ -37,19 +42,19 @@ Open a folder, browse embedded JPEG previews instantly, mark colors and filter.
 
 ## Install & build
 
-**Download:** grab a package for your distro from the [latest release](https://github.com/SikKhan/Cullr/releases/latest):
+**Download:** packages built before the rename use the `cullr` name; the next release uses `culltronic` as shown below. Grab a package for your distro from the [latest release](https://github.com/SikKhan/Culltronic/releases/latest):
 
 | Distro | Install |
 |---|---|
-| Debian / Ubuntu | `sudo apt install ./cullr_*_amd64.deb` |
-| Fedora / RHEL | `sudo dnf install ./cullr-*.x86_64.rpm` |
-| Arch Linux | `sudo pacman -U cullr-*.pkg.tar.zst` |
+| Debian / Ubuntu | `sudo apt install ./culltronic_*_amd64.deb` |
+| Fedora / RHEL | `sudo dnf install ./culltronic-*.x86_64.rpm` |
+| Arch Linux | `sudo pacman -U culltronic-*.pkg.tar.zst` |
 
 Or run the portable tarball without installing:
 
 ```sh
-tar xzf cullr-*-x86_64-linux.tar.gz
-./cullr-ui /path/to/photos
+tar xzf culltronic-*-x86_64-linux.tar.gz
+./culltronic-ui /path/to/photos
 ```
 
 Or build from source. Prerequisites: Rust 1.85+.
@@ -64,11 +69,11 @@ Build:
 cargo build --release
 ```
 
-The binary lands at `target/release/cullr-ui`. Run it with no arguments (Home view) or point it straight at a folder:
+The binary lands at `target/release/culltronic-ui`. Run it with no arguments (Home view) or point it straight at a folder:
 
 ```sh
-cullr-ui
-cullr-ui /path/to/photos
+culltronic-ui
+culltronic-ui /path/to/photos
 ```
 
 Linux-first (X11 and Wayland verified), portable anywhere Rust builds. No system library requirements beyond GPU/OpenGL drivers. SQLite is bundled.
@@ -109,7 +114,7 @@ Acceptance budgets from `SPEC.md` §8, with measured results where available —
 
 ## Third-party notices
 
-**rawler** © dnglab contributors, licensed **LGPL-2.1-only**. Cullr is GPL-3.0-or-later; rawler is linked as a separate library and its source remains available at the [dnglab repository](https://github.com/dnglab/dnglab), satisfying LGPL §6's relink requirement. All rawler usage in Cullr is confined to one module (`crates/cullr-core/src/extract.rs`).
+**rawler** © dnglab contributors, licensed **LGPL-2.1-only**. Culltronic is GPL-3.0-or-later; rawler is linked as a separate library and its source remains available at the [dnglab repository](https://github.com/dnglab/dnglab), satisfying LGPL §6's relink requirement. All rawler usage in Culltronic is confined to one module (`crates/culltronic-core/src/extract.rs`).
 
 Other major dependencies (versions per `Cargo.lock`, licenses verified from the vendored sources):
 
@@ -128,7 +133,7 @@ Other major dependencies (versions per `Cargo.lock`, licenses verified from the 
 
 ## License
 
-Cullr is GPL-3.0-or-later — see [LICENSE](LICENSE).
+Culltronic is GPL-3.0-or-later — see [LICENSE](LICENSE).
 
 ## Development
 
@@ -143,7 +148,7 @@ Cutting a release: bump `version` in the workspace [Cargo.toml](Cargo.toml), com
 Performance gates:
 
 ```sh
-CULLR_PERF=<scratch dir> cargo test --release -p cullr-core --test perf
+CULLTRONIC_PERF=<scratch dir> cargo test --release -p culltronic-core --test perf
 ```
 
-Fixture-gated integration tests run only when `CULLR_FIXTURES` is set — see `crates/cullr-core/tests/fixtures.rs` for the expected layout. The architecture overview lives in [SPEC.md](SPEC.md).
+Fixture-gated integration tests run only when `CULLTRONIC_FIXTURES` is set — see `crates/culltronic-core/tests/fixtures.rs` for the expected layout. The architecture overview lives in [SPEC.md](SPEC.md).

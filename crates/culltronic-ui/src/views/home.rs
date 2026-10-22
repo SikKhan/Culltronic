@@ -4,7 +4,7 @@ use std::path::Path;
 
 use eframe::egui;
 
-use cullr_core::Db;
+use culltronic_core::Db;
 
 use super::Action;
 use crate::theme;
@@ -27,7 +27,7 @@ impl HomeView {
             ui.add_space(72.0);
             ui.vertical_centered(|ui| {
                 ui.label(
-                    egui::RichText::new("Cullr")
+                    egui::RichText::new("Culltronic")
                         .size(34.0)
                         .strong()
                         .color(theme::TEXT),
@@ -63,7 +63,7 @@ impl HomeView {
 /// Quiet `About` button pinned to the top-right corner of the screen
 /// (SPEC §10 T14). An anchored Area keeps it clear of the centered flow.
 fn draw_about_button(ui: &mut egui::Ui, action: &mut Option<Action>) {
-    egui::Area::new(egui::Id::new("cullr_home_about"))
+    egui::Area::new(egui::Id::new("culltronic_home_about"))
         .anchor(egui::Align2::RIGHT_TOP, [-10.0, 8.0])
         .show(ui.ctx(), |ui| {
             if ui

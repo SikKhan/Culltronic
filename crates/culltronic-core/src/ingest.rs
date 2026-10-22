@@ -15,7 +15,7 @@
 //! ```
 //! use std::sync::Arc;
 //!
-//! use cullr_core::{Cache, Db, IngestPipeline};
+//! use culltronic_core::{Cache, Db, IngestPipeline};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let dir = tempfile::tempdir()?;
@@ -267,7 +267,7 @@ fn dedicated_pool() -> Option<&'static ThreadPool> {
     POOL.get_or_init(|| {
         match ThreadPoolBuilder::new()
             .num_threads(max_workers())
-            .thread_name(|slot| format!("cullr-ingest-{slot}"))
+            .thread_name(|slot| format!("culltronic-ingest-{slot}"))
             .build()
         {
             Ok(pool) => Some(pool),

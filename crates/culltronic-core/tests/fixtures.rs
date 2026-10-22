@@ -1,7 +1,7 @@
 //! Fixture-gated extraction tests (SPEC §9).
 //!
 //! Real RAW files are large and vendor-encumbered, so they never live in the
-//! repository. Point `CULLR_FIXTURES` at a directory containing at least one
+//! repository. Point `CULLTRONIC_FIXTURES` at a directory containing at least one
 //! `.CR3`, one `.NEF` and one `.ARW` file to run these; with the variable
 //! unset every test here returns silently.
 
@@ -12,13 +12,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
 
-use cullr_core::{Cache, IngestEvent, IngestPipeline, PhotoMeta, extract_file};
+use culltronic_core::{Cache, IngestEvent, IngestPipeline, PhotoMeta, extract_file};
 use tempfile::TempDir;
 
 /// Returns the first file in the fixture directory matching `extension`
 /// (case-insensitive), or `None` when the gate is closed.
 fn find_fixture(extension: &str) -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("CULLR_FIXTURES")?);
+    let dir = PathBuf::from(std::env::var_os("CULLTRONIC_FIXTURES")?);
     let entries = std::fs::read_dir(&dir).ok()?;
     entries
         .filter_map(Result::ok)
@@ -200,9 +200,10 @@ fn fixture_folder_should_ingest_to_an_ok_row_streaming_events() {
     std::fs::create_dir(&root).expect("mkdir card");
     std::fs::copy(&path, root.join(path.file_name().expect("fixture name"))).expect("copy");
 
-    let db = Arc::new(cullr_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = cullr_core::scan_folder(&root, cullr_core::ScanOptions::default()).expect("scan");
-    db.sync_scan(&root, &scanned, cullr_core::ScanOptions::default())
+    let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
+    db.sync_scan(&root, &scanned, culltronic_core::ScanOptions::default())
         .expect("sync");
     let (pipeline, events) =
         IngestPipeline::new(Cache::new(scratch.path().join("cache")), Arc::clone(&db));
@@ -239,22 +240,23 @@ fn fixture_folder_should_ingest_to_an_ok_row_streaming_events() {
 /// what the grid paints, the rest stream in behind it.
 #[test]
 fn fixture_first_thumb_should_land_within_the_cold_budget() {
-    let Some(root) = std::env::var_os("CULLR_FIXTURES").map(PathBuf::from) else {
+    let Some(root) = std::env::var_os("CULLTRONIC_FIXTURES").map(PathBuf::from) else {
         return;
     };
     if !root.is_dir() {
         return;
     }
     let scratch = TempDir::new().expect("scratch dir");
-    let db = Arc::new(cullr_core::Db::open(&scratch.path().join("index.db")).expect("db"));
+    let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
 
     let started = Instant::now();
-    let scanned = cullr_core::scan_folder(&root, cullr_core::ScanOptions::default()).expect("scan");
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
     );
-    db.sync_scan(&root, &scanned, cullr_core::ScanOptions::default())
+    db.sync_scan(&root, &scanned, culltronic_core::ScanOptions::default())
         .expect("sync");
     let (pipeline, events) =
         IngestPipeline::new(Cache::new(scratch.path().join("cache")), Arc::clone(&db));
@@ -285,20 +287,21 @@ fn fixture_first_thumb_should_land_within_the_cold_budget() {
 /// ≥20 files/s ingest budget on real media.
 #[test]
 fn fixture_folder_should_ingest_every_file_through_the_pipeline() {
-    let Some(root) = std::env::var_os("CULLR_FIXTURES").map(PathBuf::from) else {
+    let Some(root) = std::env::var_os("CULLTRONIC_FIXTURES").map(PathBuf::from) else {
         return;
     };
     if !root.is_dir() {
         return;
     }
     let scratch = TempDir::new().expect("scratch dir");
-    let db = Arc::new(cullr_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = cullr_core::scan_folder(&root, cullr_core::ScanOptions::default()).expect("scan");
+    let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
     );
-    db.sync_scan(&root, &scanned, cullr_core::ScanOptions::default())
+    db.sync_scan(&root, &scanned, culltronic_core::ScanOptions::default())
         .expect("sync");
     let (pipeline, events) =
         IngestPipeline::new(Cache::new(scratch.path().join("cache")), Arc::clone(&db));
@@ -346,20 +349,21 @@ fn fixture_folder_should_ingest_every_file_through_the_pipeline() {
 /// and always print the measured rate for tracking.
 #[test]
 fn fixture_ingest_throughput_should_meet_the_spec_budget_for_its_media() {
-    let Some(root) = std::env::var_os("CULLR_FIXTURES").map(PathBuf::from) else {
+    let Some(root) = std::env::var_os("CULLTRONIC_FIXTURES").map(PathBuf::from) else {
         return;
     };
     if !root.is_dir() {
         return;
     }
     let scratch = TempDir::new().expect("scratch dir");
-    let db = Arc::new(cullr_core::Db::open(&scratch.path().join("index.db")).expect("db"));
-    let scanned = cullr_core::scan_folder(&root, cullr_core::ScanOptions::default()).expect("scan");
+    let db = Arc::new(culltronic_core::Db::open(&scratch.path().join("index.db")).expect("db"));
+    let scanned =
+        culltronic_core::scan_folder(&root, culltronic_core::ScanOptions::default()).expect("scan");
     assert!(
         !scanned.is_empty(),
         "fixture folder holds no supported files"
     );
-    db.sync_scan(&root, &scanned, cullr_core::ScanOptions::default())
+    db.sync_scan(&root, &scanned, culltronic_core::ScanOptions::default())
         .expect("sync");
 
     // §8 reference media: majority-CR3 folders are held to 20 files/s.
@@ -436,7 +440,7 @@ fn fixture_ingest_throughput_should_meet_the_spec_budget_for_its_media() {
 /// bytes were rewritten behind the rows' backs).
 #[test]
 fn fixture_folder_should_skip_re_extraction_on_warm_restart() {
-    let Some(root) = std::env::var_os("CULLR_FIXTURES").map(PathBuf::from) else {
+    let Some(root) = std::env::var_os("CULLTRONIC_FIXTURES").map(PathBuf::from) else {
         return;
     };
     if !root.is_dir() {
@@ -444,13 +448,13 @@ fn fixture_folder_should_skip_re_extraction_on_warm_restart() {
     }
     let scratch = TempDir::new().expect("scratch dir");
     let db_path = scratch.path().join("index.db");
-    let options = cullr_core::ScanOptions::default();
+    let options = culltronic_core::ScanOptions::default();
 
     // Session 1: first open — scan, ingest to completion, remember assets.
     let mut asset_mtimes: HashMap<PathBuf, SystemTime> = HashMap::new();
     {
-        let db = Arc::new(cullr_core::Db::open(&db_path).expect("db"));
-        let scanned = cullr_core::scan_folder(&root, options).expect("scan");
+        let db = Arc::new(culltronic_core::Db::open(&db_path).expect("db"));
+        let scanned = culltronic_core::scan_folder(&root, options).expect("scan");
         assert!(
             !scanned.is_empty(),
             "fixture folder holds no supported files"
@@ -478,7 +482,7 @@ fn fixture_folder_should_skip_re_extraction_on_warm_restart() {
             .sync_scan(&root, &scanned, options)
             .expect("post-run sync")
         {
-            if entry.status != cullr_core::PhotoStatus::Ok {
+            if entry.status != culltronic_core::PhotoStatus::Ok {
                 continue;
             }
             let Some(detail) = db.photo_detail(entry.id).expect("detail") else {
@@ -504,8 +508,8 @@ fn fixture_folder_should_skip_re_extraction_on_warm_restart() {
     // Session 2: brand-new handle over the same index, as after an app
     // restart. Nothing may be pending and every cached asset must exist —
     // identical mtimes prove the extractor never ran again.
-    let reopened = cullr_core::Db::open(&db_path).expect("reopen db");
-    let rescanned = cullr_core::scan_folder(&root, options).expect("rescan");
+    let reopened = culltronic_core::Db::open(&db_path).expect("reopen db");
+    let rescanned = culltronic_core::scan_folder(&root, options).expect("rescan");
     let entries = reopened
         .sync_scan(&root, &rescanned, options)
         .expect("warm sync");
@@ -519,7 +523,7 @@ fn fixture_folder_should_skip_re_extraction_on_warm_restart() {
 
     let ok_rows = entries
         .iter()
-        .filter(|entry| entry.status == cullr_core::PhotoStatus::Ok)
+        .filter(|entry| entry.status == culltronic_core::PhotoStatus::Ok)
         .count();
     assert_eq!(
         ok_rows,

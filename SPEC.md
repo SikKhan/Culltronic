@@ -1,4 +1,4 @@
-# Cullr — Technical Spec (Revision B)
+# Culltronic — Technical Spec (Revision B)
 
 Photo Mechanic-style culling tool for RAW photographs. Linux-first, cross-platform by construction (pure Rust). Open source, GPL-3.0-or-later.
 
@@ -17,16 +17,16 @@ Photo Mechanic's ingest/cull loop only: open folder → browse embedded JPEG pre
 | Storage | rusqlite (bundled) index DB + plain JPEG files in XDG cache dir |
 | Parallelism | rayon ingest pool + crossbeam channels streaming into UI |
 | Platform | Linux-first (`~/.cache/cullr`, X11 + Wayland verified), portable anywhere |
-| License | Cullr: **GPL-3.0-or-later**, public repo from commit one. Dependency: rawler is LGPL-2.1-only — compatible via LGPL §6 (source-available relink), see §12 |
+| License | Culltronic: **GPL-3.0-or-later**, public repo from commit one. Dependency: rawler is LGPL-2.1-only — compatible via LGPL §6 (source-available relink), see §12 |
 | Engineering standard | rust-best-practices: thiserror in core / anyhow in ui binary only, zero unwrap/expect outside tests, `[workspace.lints]` deny-all, doc tests on core facade |
 
 ## 3. Architecture
 
 ```
-cullr/
+culltronic/
 ├── Cargo.toml                  # workspace + [workspace.lints]
 └── crates/
-    ├── cullr-core/
+    ├── culltronic-core/
     │   └── src/
     │       ├── lib.rs          # public facade: Engine, Events, commands
     │       ├── model.rs        # PhotoId(u64, Copy), PhotoMeta, Label(Copy)
@@ -36,7 +36,7 @@ cullr/
     │       ├── ingest.rs       # job queue, rayon driver, generation-cancel
     │       ├── cache.rs        # paths, atomic writes (tmp+rename), GC
     │       └── exif.rs         # display-string formatting from RawMetadata
-    └── cullr-ui/
+    └── culltronic-ui/
         └── src/
             ├── main.rs         # eframe entry, theme, Inter font
             ├── app.rs          # App state machine, event pump
@@ -169,12 +169,12 @@ All benchmarks run `--release`.
 
 ## 9. Engineering standard (rust-best-practices)
 
-- Errors: `thiserror` enums in cullr-core (`ScanError`, `DbError`, `ExtractError` behind `CoreError`); `anyhow` only in cullr-ui main. Zero `unwrap()`/`expect()` outside tests.
+- Errors: `thiserror` enums in culltronic-core (`ScanError`, `DbError`, `ExtractError` behind `CoreError`); `anyhow` only in culltronic-ui main. Zero `unwrap()`/`expect()` outside tests.
 - Lints: shared `[workspace.lints]`: deny `clippy::all`, plus `unwrap_used`, perf lints, `redundant_clone`, `needless_collect`. Overrides via `#[expect]` with justification, never bare `#[allow]`.
 - Ownership: hot paths clone-audited; `&str`/`&[T]` params; `Copy` derives for PhotoId/Label.
 - Dispatch: static internally; `dyn` only at rawler decoder boundary (boxed once in extract.rs) and event sink.
-- Tests: descriptive names (`scan_should_skip_hidden_directories`), one assertion per test, doc tests on public core facade, `tempfile` DB tests, fixture integration gated on `CULLR_FIXTURES` env (skip silently when unset).
-- Docs: `//` = why, `///` = public API; `#![deny(missing_docs)]` on cullr-core lib. TODOs require issue refs.
+- Tests: descriptive names (`scan_should_skip_hidden_directories`), one assertion per test, doc tests on public core facade, `tempfile` DB tests, fixture integration gated on `CULLTRONIC_FIXTURES` env (skip silently when unset).
+- Docs: `//` = why, `///` = public API; `#![deny(missing_docs)]` on culltronic-core lib. TODOs require issue refs.
 - Every task ends with: `cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings` clean.
 
 ## 10. Task breakdown
@@ -188,7 +188,7 @@ Strict deps within phase, soft across phases.
 - **T4 Home view & wiring** — rfd pick, recents, Home→Grid placeholders + counts. *Done: correct file count.*
 
 ### Phase B — Extraction engine
-- **T5 Extract module** — extract.rs (metadata + fallback chain), cache.rs atomic writes; integration tests gated on `CULLR_FIXTURES`. *Done: CR3/NEF/ARW fixtures produce preview+thumb+EXIF.*
+- **T5 Extract module** — extract.rs (metadata + fallback chain), cache.rs atomic writes; integration tests gated on `CULLTRONIC_FIXTURES`. *Done: CR3/NEF/ARW fixtures produce preview+thumb+EXIF.*
 - **T6 Ingest pipeline** — queue, rayon driver, generation-cancel, progress events, panic isolation. *Done: 500-file folder ingested; mid-run switch cancels cleanly.*
 - **T7 Grid v1** — virtualized scroll, aspect-fit cells, progressive fill, spinners, error tiles. *Done: §8 scan + first-thumb budgets met.*
 
@@ -220,7 +220,7 @@ Export/copy kept+rejected sets, rename templates, XMP sidecars, recursive-scan U
 
 ## 12. License compliance checklist
 
-- [x] Cullr license expression: `GPL-3.0-or-later`
+- [x] Culltronic license expression: `GPL-3.0-or-later`
 - [x] LICENSE file with GPLv3 text (T1)
 - [x] Cargo.toml `license` field set (T1)
 - [x] Third-party notice: rawler © dnglab contributors, LGPL-2.1 (README + About dialog, T14/T15)

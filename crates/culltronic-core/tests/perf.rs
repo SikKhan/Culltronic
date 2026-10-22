@@ -3,10 +3,10 @@
 //! Budgets are release-mode numbers, so run these with:
 //!
 //! ```text
-//! CULLR_PERF=<dir> cargo test --release -p cullr-core --test perf
+//! CULLTRONIC_PERF=<dir> cargo test --release -p culltronic-core --test perf
 //! ```
 //!
-//! With `CULLR_PERF` unset every test here returns silently; the directory
+//! With `CULLTRONIC_PERF` unset every test here returns silently; the directory
 //! is only used as scratch space and may not exist.
 
 #![expect(clippy::expect_used)]
@@ -16,10 +16,10 @@ use std::time::Instant;
 
 use tempfile::TempDir;
 
-/// Scratch directory for one soak test, created inside `CULLR_PERF`.
+/// Scratch directory for one soak test, created inside `CULLTRONIC_PERF`.
 /// Returns `None` when the gate variable is unset so callers skip silently.
 fn soak_scratch() -> Option<TempDir> {
-    let base = std::env::var_os("CULLR_PERF").map(std::path::PathBuf::from)?;
+    let base = std::env::var_os("CULLTRONIC_PERF").map(std::path::PathBuf::from)?;
     Some(TempDir::new_in(base).expect("scratch dir"))
 }
 
@@ -35,7 +35,8 @@ fn seed_placeholder_raws(dir: &Path, count: u32) {
 /// must land in under 300 ms so the grid shows placeholders immediately.
 #[test]
 fn scan_of_10k_files_should_meet_the_300ms_budget() {
-    let Some(scratch_base) = std::env::var_os("CULLR_PERF").map(std::path::PathBuf::from) else {
+    let Some(scratch_base) = std::env::var_os("CULLTRONIC_PERF").map(std::path::PathBuf::from)
+    else {
         return;
     };
     let dir = TempDir::new_in(&scratch_base).expect("scratch dir");
@@ -44,12 +45,16 @@ fn scan_of_10k_files_should_meet_the_300ms_budget() {
             .expect("test setup write");
     }
 
-    let db = cullr_core::Db::open(&dir.path().join("index.db")).expect("db");
+    let db = culltronic_core::Db::open(&dir.path().join("index.db")).expect("db");
     let started = Instant::now();
-    let scanned =
-        cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("scan");
+    let scanned = culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+        .expect("scan");
     let entries = db
-        .sync_scan(dir.path(), &scanned, cullr_core::ScanOptions::default())
+        .sync_scan(
+            dir.path(),
+            &scanned,
+            culltronic_core::ScanOptions::default(),
+        )
         .expect("sync");
     let elapsed = started.elapsed();
 
@@ -65,7 +70,8 @@ fn scan_of_10k_files_should_meet_the_300ms_budget() {
 /// upserts and must be even cheaper than the cold gate.
 #[test]
 fn rescan_of_10k_files_should_stay_within_the_300ms_budget() {
-    let Some(scratch_base) = std::env::var_os("CULLR_PERF").map(std::path::PathBuf::from) else {
+    let Some(scratch_base) = std::env::var_os("CULLTRONIC_PERF").map(std::path::PathBuf::from)
+    else {
         return;
     };
     let dir = TempDir::new_in(&scratch_base).expect("scratch dir");
@@ -73,17 +79,26 @@ fn rescan_of_10k_files_should_stay_within_the_300ms_budget() {
         std::fs::write(dir.path().join(format!("IMG_{index:05}.NEF")), b"x")
             .expect("test setup write");
     }
-    let db = cullr_core::Db::open(&dir.path().join("index.db")).expect("db");
-    let scanned =
-        cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("scan");
-    db.sync_scan(dir.path(), &scanned, cullr_core::ScanOptions::default())
-        .expect("warm sync");
+    let db = culltronic_core::Db::open(&dir.path().join("index.db")).expect("db");
+    let scanned = culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+        .expect("scan");
+    db.sync_scan(
+        dir.path(),
+        &scanned,
+        culltronic_core::ScanOptions::default(),
+    )
+    .expect("warm sync");
 
     let started = Instant::now();
     let rescanned =
-        cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("rescan");
-    db.sync_scan(dir.path(), &rescanned, cullr_core::ScanOptions::default())
-        .expect("warm sync");
+        culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+            .expect("rescan");
+    db.sync_scan(
+        dir.path(),
+        &rescanned,
+        culltronic_core::ScanOptions::default(),
+    )
+    .expect("warm sync");
     let elapsed = started.elapsed();
 
     println!("warm rescan of 10k files took {elapsed:?}");
@@ -102,12 +117,16 @@ fn scan_of_50k_files_should_meet_the_2s_soak_budget() {
     };
     seed_placeholder_raws(dir.path(), 50_000);
 
-    let db = cullr_core::Db::open(&dir.path().join("index.db")).expect("db");
+    let db = culltronic_core::Db::open(&dir.path().join("index.db")).expect("db");
     let started = Instant::now();
-    let scanned =
-        cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("scan");
+    let scanned = culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+        .expect("scan");
     let entries = db
-        .sync_scan(dir.path(), &scanned, cullr_core::ScanOptions::default())
+        .sync_scan(
+            dir.path(),
+            &scanned,
+            culltronic_core::ScanOptions::default(),
+        )
         .expect("sync");
     let elapsed = started.elapsed();
 
@@ -129,20 +148,26 @@ fn rescan_of_50k_files_should_meet_the_2s_soak_budget() {
         return;
     };
     seed_placeholder_raws(dir.path(), 50_000);
-    let db = cullr_core::Db::open(&dir.path().join("index.db")).expect("db");
+    let db = culltronic_core::Db::open(&dir.path().join("index.db")).expect("db");
     let first = db
         .sync_scan(
             dir.path(),
-            &cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("scan"),
-            cullr_core::ScanOptions::default(),
+            &culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+                .expect("scan"),
+            culltronic_core::ScanOptions::default(),
         )
         .expect("cold sync");
 
     let started = Instant::now();
     let rescanned =
-        cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("rescan");
+        culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+            .expect("rescan");
     let entries = db
-        .sync_scan(dir.path(), &rescanned, cullr_core::ScanOptions::default())
+        .sync_scan(
+            dir.path(),
+            &rescanned,
+            culltronic_core::ScanOptions::default(),
+        )
         .expect("warm sync");
     let elapsed = started.elapsed();
 
@@ -167,18 +192,19 @@ fn bulk_relabel_across_50k_rows_should_stay_under_500ms() {
         return;
     };
     seed_placeholder_raws(dir.path(), 50_000);
-    let db = cullr_core::Db::open(&dir.path().join("index.db")).expect("db");
+    let db = culltronic_core::Db::open(&dir.path().join("index.db")).expect("db");
     let entries = db
         .sync_scan(
             dir.path(),
-            &cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default()).expect("scan"),
-            cullr_core::ScanOptions::default(),
+            &culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
+                .expect("scan"),
+            culltronic_core::ScanOptions::default(),
         )
         .expect("sync");
     let ids: Vec<_> = entries.iter().map(|entry| entry.id).collect();
 
     let started = Instant::now();
-    db.set_labels(&ids, cullr_core::Label::Green)
+    db.set_labels(&ids, culltronic_core::Label::Green)
         .expect("bulk relabel");
     let elapsed = started.elapsed();
 
@@ -192,16 +218,16 @@ fn bulk_relabel_across_50k_rows_should_stay_under_500ms() {
     let reread = db
         .sync_scan(
             dir.path(),
-            &cullr_core::scan_folder(dir.path(), cullr_core::ScanOptions::default())
+            &culltronic_core::scan_folder(dir.path(), culltronic_core::ScanOptions::default())
                 .expect("rescan"),
-            cullr_core::ScanOptions::default(),
+            culltronic_core::ScanOptions::default(),
         )
         .expect("resync");
     assert_eq!(reread.len(), 50_000);
     assert!(
         reread
             .iter()
-            .all(|entry| entry.label == cullr_core::Label::Green),
+            .all(|entry| entry.label == culltronic_core::Label::Green),
         "some rows missed the bulk label"
     );
 }
