@@ -39,9 +39,9 @@ use std::time::Instant;
 
 use eframe::egui;
 
-use cullr_core::PhotoEntry;
-use cullr_core::PhotoId;
-use cullr_core::PhotoStatus;
+use culltronic_core::PhotoEntry;
+use culltronic_core::PhotoId;
+use culltronic_core::PhotoStatus;
 
 use super::Action;
 use super::loupe;
@@ -129,7 +129,7 @@ impl CellGeom {
         let width = width.clamp(CELL_MIN_WIDTH, CELL_MAX_WIDTH);
         // Uniform rows are what keeps `show_rows` virtualization exact;
         // other aspects letterbox inside this box.
-        let height = width / cullr_core::DEFAULT_ASPECT + STRIP_HEIGHT;
+        let height = width / culltronic_core::DEFAULT_ASPECT + STRIP_HEIGHT;
         Self { width, height }
     }
 
@@ -386,7 +386,7 @@ impl GridView {
     /// Retires a finished export job with its user-facing summary line.
     /// Partial failures and cancellation are reported honestly — the note
     /// stays visible until the next run or folder change replaces it.
-    pub fn finish_export(&mut self, outcome: &Result<cullr_core::ExportReport, String>) {
+    pub fn finish_export(&mut self, outcome: &Result<culltronic_core::ExportReport, String>) {
         let note = match outcome {
             Ok(report) => {
                 let text = if report.cancelled {
@@ -481,7 +481,7 @@ impl GridView {
     pub fn ui(
         &mut self,
         ui: &mut egui::Ui,
-        db: &cullr_core::Db,
+        db: &culltronic_core::Db,
         textures: &mut Textures,
         suspended: bool,
     ) -> Option<Action> {
@@ -600,11 +600,11 @@ impl GridView {
         }
 
         let tally = self.tally();
-        egui::Panel::top(egui::Id::new("cullr_grid_top_bar")).show(ui, |ui| {
+        egui::Panel::top(egui::Id::new("culltronic_grid_top_bar")).show(ui, |ui| {
             self.top_bar(ui, db, &tally, &mut action);
         });
         if self.show_filter_bar() {
-            egui::Panel::top(egui::Id::new("cullr_filter_bar")).show(ui, |ui| {
+            egui::Panel::top(egui::Id::new("culltronic_filter_bar")).show(ui, |ui| {
                 self.filter_bar(ui, &tally);
             });
         }
@@ -650,7 +650,7 @@ impl GridView {
     fn top_bar(
         &mut self,
         ui: &mut egui::Ui,
-        db: &cullr_core::Db,
+        db: &culltronic_core::Db,
         tally: &Tally,
         action: &mut Option<Action>,
     ) {
@@ -914,7 +914,7 @@ impl GridView {
     /// degrading to "unknown" on read errors so sorting still works. Only
     /// called when [`SortKey::TakenAt`] is active; point queries are
     /// microsecond-scale (same path as the loupe's EXIF bar).
-    fn refresh_taken_at(&mut self, db: &cullr_core::Db) {
+    fn refresh_taken_at(&mut self, db: &culltronic_core::Db) {
         for entry in &self.entries {
             if self.taken_at.contains_key(&entry.id) {
                 continue;
@@ -958,7 +958,7 @@ impl GridView {
     /// never costs anything per frame.
     fn draw_export_control(&mut self, ctx: &egui::Context) -> Option<Action> {
         let mut picked = None;
-        egui::Area::new(egui::Id::new("cullr_export_control"))
+        egui::Area::new(egui::Id::new("culltronic_export_control"))
             .order(egui::Order::Foreground)
             .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -16.0])
             .show(ctx, |ui| {
@@ -1115,7 +1115,7 @@ impl GridView {
     fn body(
         &mut self,
         ui: &mut egui::Ui,
-        db: &cullr_core::Db,
+        db: &culltronic_core::Db,
         textures: &mut Textures,
         columns: usize,
         suspended: bool,
@@ -1212,7 +1212,7 @@ impl GridView {
     /// persist (single UPDATE) mirrored into the row so the strip dot
     /// refreshes immediately. Auto-advance then steps forward through the
     /// filtered order, exactly like the loupe's flow (SPEC §6).
-    fn label_cursor(&mut self, db: &cullr_core::Db, cursor: usize, label: cullr_core::Label) {
+    fn label_cursor(&mut self, db: &culltronic_core::Db, cursor: usize, label: culltronic_core::Label) {
         let Some(&row) = self.view.get(cursor) else {
             return;
         };
@@ -1258,7 +1258,7 @@ impl GridView {
     /// frame; persistence lands as one transaction however big the
     /// batch. Auto-advance stays out of multi-photo relabels: a hundred-
     /// photo keystroke must not fling the cursor down the sheet.
-    fn apply_label(&mut self, db: &cullr_core::Db, label: cullr_core::Label) {
+    fn apply_label(&mut self, db: &culltronic_core::Db, label: culltronic_core::Label) {
         if self.selection.is_empty() {
             if let Some(cursor) = self.cursor {
                 self.label_cursor(db, cursor, label);
@@ -1285,7 +1285,7 @@ impl GridView {
     /// re-render this frame; persistence lands as one transaction. The
     /// texture cache re-decodes automatically because the requested
     /// rotation no longer matches each tile's resident slot.
-    fn apply_rotation(&mut self, db: &cullr_core::Db, direction: widgets::RotateDir) {
+    fn apply_rotation(&mut self, db: &culltronic_core::Db, direction: widgets::RotateDir) {
         let targets: Vec<usize> = if self.selection.is_empty() {
             match self.cursor {
                 Some(cursor) if self.view.get(cursor).is_some() => vec![self.view[cursor]],
@@ -1296,7 +1296,7 @@ impl GridView {
                 .filter(|&row| self.selection.contains(&self.entries[row].id))
                 .collect()
         };
-        let updates: Vec<(cullr_core::PhotoId, u8)> = targets
+        let updates: Vec<(culltronic_core::PhotoId, u8)> = targets
             .iter()
             .filter_map(|&row| {
                 let entry = self.entries.get_mut(row)?;
@@ -1477,7 +1477,7 @@ impl GridView {
         // ScrollArea in the app (they share egui's default id).
         let mut scroll = egui::ScrollArea::vertical()
             .auto_shrink(false)
-            .id_salt("cullr_contact_sheet");
+            .id_salt("culltronic_contact_sheet");
         if let Some(position) = self.scroll_target.take() {
             let content_height = total_rows.max(1) as f32 * geom.stride_y() + GAP;
             let viewport = ui.available_height();
@@ -1850,7 +1850,7 @@ fn draw_strip(painter: &egui::Painter, cell: egui::Rect, entry: &PhotoEntry) {
     painter.rect_filled(strip, 6.0, theme::BG);
 
     let name_y = strip.top() + NAME_LINE_CENTER;
-    if entry.label != cullr_core::Label::None {
+    if entry.label != culltronic_core::Label::None {
         painter.circle_filled(
             egui::pos2(strip.left() + 10.0, name_y),
             3.5,
@@ -1867,7 +1867,7 @@ fn draw_strip(painter: &egui::Painter, cell: egui::Rect, entry: &PhotoEntry) {
     } else {
         theme::MUTED
     };
-    let name_x = if entry.label == cullr_core::Label::None {
+    let name_x = if entry.label == culltronic_core::Label::None {
         strip.left() + 8.0
     } else {
         // Clear the label dot.
@@ -2210,11 +2210,11 @@ mod tests {
 
     // --- filter integration (SPEC §10 T11) ---
 
-    use cullr_core::Label as TestLabel;
+    use culltronic_core::Label as TestLabel;
 
     fn entry_at(id: u64, label: TestLabel) -> PhotoEntry {
         PhotoEntry {
-            id: cullr_core::PhotoId(id),
+            id: culltronic_core::PhotoId(id),
             rel_path: format!("IMG_{id:04}.CR3").into(),
             label,
             status: PhotoStatus::Ok,
@@ -2337,7 +2337,7 @@ mod tests {
 
     // --- selection (SPEC §10 T12) ---
 
-    use cullr_core::Db;
+    use culltronic_core::Db;
 
     use tempfile::TempDir;
 
@@ -2351,10 +2351,10 @@ mod tests {
     /// observable: ids come from a real scan-diff, not thin air.
     fn grid_with_db(labels: &[TestLabel], db: &Db) -> GridView {
         let root = std::path::Path::new("/photos");
-        let scanned: Vec<cullr_core::PhotoMeta> = labels
+        let scanned: Vec<culltronic_core::PhotoMeta> = labels
             .iter()
             .enumerate()
-            .map(|(index, _)| cullr_core::PhotoMeta {
+            .map(|(index, _)| culltronic_core::PhotoMeta {
                 root: root.to_owned(),
                 rel_path: format!("IMG_{:04}.CR3", index + 1).into(),
                 mtime: std::time::SystemTime::UNIX_EPOCH,
@@ -2363,7 +2363,7 @@ mod tests {
             })
             .collect();
         let entries = db
-            .sync_scan(root, &scanned, cullr_core::ScanOptions::default())
+            .sync_scan(root, &scanned, culltronic_core::ScanOptions::default())
             .expect("sync");
         let mut grid = GridView::new(root.to_owned(), false, ExportMode::All);
         grid.apply_scan(Ok(entries));
@@ -2501,7 +2501,7 @@ mod tests {
         // Only the surviving red photo joins; hidden tiles never join a
         // batch (SPEC §6 Ctrl+A).
         assert_eq!(grid.selection.len(), 1);
-        assert!(grid.selection.contains(&cullr_core::PhotoId(2)));
+        assert!(grid.selection.contains(&culltronic_core::PhotoId(2)));
     }
 
     #[test]
@@ -2583,7 +2583,7 @@ mod tests {
 
     // --- export (bottom-right control, Ctrl+E) ---
 
-    use cullr_core::ExportReport;
+    use culltronic_core::ExportReport;
 
     #[test]
     fn export_set_should_prefer_the_selection_over_the_filtered_view() {
@@ -2708,7 +2708,7 @@ mod tests {
         grid.begin_export(3);
         grid.finish_export(&Ok(ExportReport {
             copied: 1,
-            failures: vec![cullr_core::ExportFailure {
+            failures: vec![culltronic_core::ExportFailure {
                 source: "/photos/a.nef".into(),
                 reason: "vanished".to_owned(),
             }],
@@ -2839,7 +2839,7 @@ mod tests {
     /// Capture-time stamps by photo id, as `refresh_taken_at` would cache.
     fn stamp(grid: &mut GridView, id: u64, taken_at: &str) {
         grid.taken_at
-            .insert(cullr_core::PhotoId(id), Some(taken_at.to_owned()));
+            .insert(culltronic_core::PhotoId(id), Some(taken_at.to_owned()));
     }
 
     #[test]

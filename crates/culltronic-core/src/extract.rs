@@ -93,7 +93,7 @@ pub fn is_supported_extension(extension: &[u8]) -> bool {
 /// ```
 /// use std::time::SystemTime;
 ///
-/// use cullr_core::{extract_file, Cache, PhotoMeta};
+/// use culltronic_core::{extract_file, Cache, PhotoMeta};
 ///
 /// let dir = tempfile::tempdir().unwrap();
 /// let cache = Cache::new(dir.path().join("cache"));

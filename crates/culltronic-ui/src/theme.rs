@@ -1,8 +1,8 @@
-//! Cullr dark palette (SPEC §6 theme); shared by every view.
+//! Culltronic dark palette (SPEC §6 theme); shared by every view.
 
 use eframe::egui::Color32;
 
-use cullr_core::Label;
+use culltronic_core::Label;
 
 /// App background.
 pub const BG: Color32 = Color32::from_rgb(0x16, 0x17, 0x1A);

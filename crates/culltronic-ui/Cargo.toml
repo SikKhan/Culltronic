@@ -1,6 +1,6 @@
 [package]
-name = "cullr-ui"
-description = "Cullr — Photo Mechanic-style culling tool for RAW photographs."
+name = "culltronic-ui"
+description = "Culltronic — Photo Mechanic-style culling tool for RAW photographs."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-cullr-core = { path = "../cullr-core" }
+culltronic-core = { path = "../culltronic-core" }
 # "persistence" lets eframe save/restore the window rect across restarts
 # (with monitor clamping) and the egui memory; see main.rs.
 eframe = { workspace = true, features = ["persistence"] }
@@ -35,10 +35,10 @@ workspace = true
 # toolchain emits (Pop!_OS 24.04); auto-req is off so exactly this list
 # ships.
 [package.metadata.generate-rpm]
-name = "cullr"
+name = "culltronic"
 summary = "Photo Mechanic-style culling tool for RAW photographs"
 release = "1"
-url = "https://github.com/SikKhan/Cullr"
+url = "https://github.com/SikKhan/Culltronic"
 auto-req = "no"
 require-sh = false
 requires = { glibc = ">= 2.39", libgcc = "", gtk3 = "", libX11 = "", libXcursor = "", libXrandr = "", libXi = "", libxkbcommon = "", libxkbcommon-x11 = "", wayland = "", mesa-libGL = "" }
@@ -46,12 +46,12 @@ requires = { glibc = ">= 2.39", libgcc = "", gtk3 = "", libX11 = "", libXcursor 
 [[package.metadata.generate-rpm.assets]]
 # Paths are relative to the crate dir (the script runs `cargo generate-rpm`
 # from here).
-source = "../../target/release/cullr-ui"
-dest = "/usr/bin/cullr-ui"
+source = "../../target/release/culltronic-ui"
+dest = "/usr/bin/culltronic-ui"
 mode = "755"
 
 [[package.metadata.generate-rpm.assets]]
 source = "../../LICENSE"
-dest = "/usr/share/licenses/cullr/LICENSE"
+dest = "/usr/share/licenses/culltronic/LICENSE"
 mode = "644"
 doc = true

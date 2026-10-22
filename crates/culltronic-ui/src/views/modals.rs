@@ -101,7 +101,7 @@ impl Modals {
     pub fn draw(&mut self, ctx: &egui::Context) {
         if self.help {
             let mut about = false;
-            let dismissed = draw_dialog(ctx, egui::Id::new("cullr_help"), |ui| {
+            let dismissed = draw_dialog(ctx, egui::Id::new("culltronic_help"), |ui| {
                 draw_help_panel(ui, &mut about);
                 false
             });
@@ -113,7 +113,7 @@ impl Modals {
             }
         }
         if self.about {
-            let dismissed = draw_dialog(ctx, egui::Id::new("cullr_about"), draw_about_panel);
+            let dismissed = draw_dialog(ctx, egui::Id::new("culltronic_about"), draw_about_panel);
             if dismissed {
                 self.about = false;
             }
@@ -224,7 +224,7 @@ fn draw_help_panel(ui: &mut egui::Ui, about: &mut bool) -> bool {
                 .color(theme::MUTED),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button("About Cullr").clicked() {
+            if ui.button("About Culltronic").clicked() {
                 *about = true;
             }
         });
@@ -238,7 +238,7 @@ fn draw_about_panel(ui: &mut egui::Ui) -> bool {
     let mut close = false;
     ui.horizontal(|ui| {
         ui.label(
-            egui::RichText::new("Cullr")
+            egui::RichText::new("Culltronic")
                 .size(24.0)
                 .strong()
                 .color(theme::TEXT),
@@ -259,7 +259,7 @@ fn draw_about_panel(ui: &mut egui::Ui) -> bool {
         ui,
         "rawler",
         "© dnglab contributors — LGPL-2.1-only",
-        "RAW decoding. Linked dynamically per LGPL §6: Cullr is open \
+        "RAW decoding. Linked dynamically per LGPL §6: Culltronic is open \
          source under GPL-3.0-or-later, so the combined work satisfies \
          the source-availability provision.",
     );

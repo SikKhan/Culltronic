@@ -1,4 +1,4 @@
-//! Cullr — Photo Mechanic-style culling tool for RAW photographs.
+//! Culltronic — Photo Mechanic-style culling tool for RAW photographs.
 
 mod app;
 mod tex;
@@ -24,12 +24,12 @@ fn main() -> anyhow::Result<()> {
     // Wayland untouched.
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Cullr")
+            .with_title("Culltronic")
             .with_inner_size([1280.0, 800.0]),
         ..Default::default()
     };
     eframe::run_native(
-        "Cullr",
+        "Culltronic",
         options,
         Box::new(move |cc| {
             let mut app = app::App::new(cc, Arc::new(db));
@@ -42,14 +42,14 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `cullr [FOLDER]` — an optional positional folder opens straight into the
+/// `culltronic-ui [FOLDER]` — an optional positional folder opens straight into the
 /// contact sheet instead of the home screen.
 fn parse_initial_folder() -> anyhow::Result<Option<std::path::PathBuf>> {
     let Some(arg) = std::env::args().nth(1) else {
         return Ok(None);
     };
     if arg == "-h" || arg == "--help" {
-        println!("usage: cullr [FOLDER]");
+        println!("usage: culltronic-ui [FOLDER]");
         std::process::exit(0);
     }
     let path = std::path::PathBuf::from(arg);
@@ -63,11 +63,12 @@ fn parse_initial_folder() -> anyhow::Result<Option<std::path::PathBuf>> {
 ///
 /// The database is essential — photo ids and recents live there — so a
 /// failure aborts startup instead of degrading into a broken session.
-fn open_index_db() -> anyhow::Result<cullr_core::Db> {
+fn open_index_db() -> anyhow::Result<culltronic_core::Db> {
     let cache_dir = dirs::cache_dir()
         .ok_or_else(|| anyhow::anyhow!("cannot determine the system cache directory"))?;
+    // Keep the pre-rename location so labels and recent folders survive upgrades.
     let path = cache_dir.join("cullr").join("index.db");
-    Ok(cullr_core::Db::open(&path)?)
+    Ok(culltronic_core::Db::open(&path)?)
 }
 
 fn init_tracing() {

@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn scan_should_report_missing_root_as_error() {
-        let missing = std::env::temp_dir().join("cullr-definitely-missing-42");
+        let missing = std::env::temp_dir().join("culltronic-definitely-missing-42");
 
         let result = scan_folder(&missing, ScanOptions::default());
 

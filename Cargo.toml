@@ -1,14 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["crates/cullr-core", "crates/cullr-ui"]
+members = ["crates/culltronic-core", "crates/culltronic-ui"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
-authors = ["Cullr contributors"]
-repository = "https://github.com/SikKhan/Cullr"
+authors = ["Culltronic contributors"]
+repository = "https://github.com/SikKhan/Culltronic"
 
 [workspace.dependencies]
 eframe = "0.36"
