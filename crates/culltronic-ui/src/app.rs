@@ -200,7 +200,11 @@ impl App {
         // a plain thread suffices — extraction itself runs on the rayon pool.
         std::thread::spawn(move || {
             let result = scan_and_sync(&db, &root);
-            let _sent = sender.send(Event::ScanFinished { generation, root, result });
+            let _sent = sender.send(Event::ScanFinished {
+                generation,
+                root,
+                result,
+            });
         });
     }
 
@@ -231,14 +235,20 @@ impl App {
     fn drain_events(&mut self) {
         while let Ok(event) = self.events_rx.try_recv() {
             match event {
-                Event::ScanFinished { generation, root, result } => {
+                Event::ScanFinished {
+                    generation,
+                    root,
+                    result,
+                } => {
                     if self.scan_generation != generation || self.scanning.as_ref() != Some(&root) {
                         continue;
                     }
                     self.scanning = None;
                     let mut dropped_ids = Vec::new();
                     if let Some(files) = self.pending_drop.take() {
-                        let resolved = result.as_ref().map_err(Clone::clone)
+                        let resolved = result
+                            .as_ref()
+                            .map_err(Clone::clone)
                             .and_then(|entries| crate::drops::photo_ids(entries, &files));
                         match resolved {
                             Ok(ids) => {
@@ -531,15 +541,20 @@ impl App {
             return;
         }
         if self.modals.any() || self.pending_export.is_some() || self.export_job.is_some() {
-            self.drop_note = Some("Finish or cancel the current dialog or export before dropping photos.".into());
+            self.drop_note = Some(
+                "Finish or cancel the current dialog or export before dropping photos.".into(),
+            );
             return;
         }
         if self.scanning.is_some() && self.pending_drop.is_none() {
-            self.drop_note = Some("Wait for the current folder to finish opening before dropping photos.".into());
+            self.drop_note = Some(
+                "Wait for the current folder to finish opening before dropping photos.".into(),
+            );
             return;
         }
         let paths: Option<Vec<_>> = dropped.into_iter().map(|file| file.path).collect();
-        let resolved = paths.ok_or_else(|| "Drop local files or a folder from your file manager.".to_owned())
+        let resolved = paths
+            .ok_or_else(|| "Drop local files or a folder from your file manager.".to_owned())
             .and_then(crate::drops::resolve);
         match resolved {
             Ok(request) => {
@@ -588,7 +603,8 @@ impl eframe::App for App {
         // a modal or the export confirmation is up the views render but
         // stay input-suspended.
         self.modals.pump_input(&ctx);
-        let suspended = self.modals.any() || self.pending_export.is_some() || self.pending_drop.is_some();
+        let suspended =
+            self.modals.any() || self.pending_export.is_some() || self.pending_drop.is_some();
 
         match &mut self.screen {
             Screen::Home(home) => {
@@ -678,4 +694,79 @@ fn install_theme(ctx: &egui::Context) {
         // Secondary text (hints, tile strips) uses the muted gray.
         v.weak_text_color = Some(MUTED);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(clippy::unwrap_used)]
+
+    use super::*;
+
+    fn test_app(db: Db) -> App {
+        let (events_tx, events_rx) = crossbeam_channel::unbounded();
+        App {
+            scan_generation: 0,
+            pending_drop: None,
+            drop_note: None,
+            db: Arc::new(db),
+            screen: Screen::Home(HomeView),
+            events_tx,
+            events_rx,
+            scanning: None,
+            pipeline: None,
+            ingest_rx: None,
+            ingest_generation: 0,
+            textures: Textures::new(),
+            modals: Modals::default(),
+            export_job: None,
+            pending_export: None,
+        }
+    }
+
+    #[test]
+    fn stale_same_folder_scan_cannot_consume_the_latest_drop() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("photos");
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        app.scan_generation = 2;
+        app.scanning = Some(root.clone());
+        app.pending_drop = Some(Vec::new());
+        app.events_tx.send(Event::ScanFinished {
+            generation: 1,
+            root: root.clone(),
+            result: Ok(Vec::new()),
+        }).unwrap();
+        app.drain_events();
+        assert!(matches!(app.screen, Screen::Home(_)));
+        assert!(app.pending_drop.is_some());
+        app.events_tx.send(Event::ScanFinished {
+            generation: 2,
+            root: root.clone(),
+            result: Ok(Vec::new()),
+        }).unwrap();
+        app.drain_events();
+        assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&root)));
+        assert!(app.pending_drop.is_none());
+    }
+
+    #[test]
+    fn invalid_drop_or_scan_error_preserves_the_mounted_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        let original = dir.path().join("original");
+        let dropped = dir.path().join("dropped");
+        app.mount_folder(&original);
+        for result in [Ok(Vec::new()), Err("Access denied".into())] {
+            app.scanning = Some(dropped.clone());
+            app.pending_drop = Some(vec!["unpaired.JPG".into()]);
+            app.events_tx.send(Event::ScanFinished {
+                generation: 0,
+                root: dropped.clone(),
+                result,
+            }).unwrap();
+            app.drain_events();
+            assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
+            assert!(app.drop_note.is_some());
+        }
+    }
 }

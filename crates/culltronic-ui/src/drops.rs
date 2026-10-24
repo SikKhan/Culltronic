@@ -9,9 +9,15 @@ use culltronic_core::{PhotoEntry, PhotoId};
 pub(crate) fn photo_ids(entries: &[PhotoEntry], files: &[PathBuf]) -> Result<Vec<PhotoId>, String> {
     let mut ids = Vec::new();
     for file in files {
-        let entry = entries.iter().find(|entry| {
-            entry.rel_path == *file || entry.jpeg_rel_path.as_ref() == Some(file)
-        }).ok_or_else(|| format!("{} is unavailable, unsupported, or has no matching RAW photo.", file.display()))?;
+        let entry = entries
+            .iter()
+            .find(|entry| entry.rel_path == *file || entry.jpeg_rel_path.as_ref() == Some(file))
+            .ok_or_else(|| {
+                format!(
+                    "{} is unavailable, unsupported, or has no matching RAW photo.",
+                    file.display()
+                )
+            })?;
         if !ids.contains(&entry.id) {
             ids.push(entry.id);
         }
@@ -32,34 +38,51 @@ pub(crate) fn resolve(paths: Vec<PathBuf>) -> Result<DropRequest, String> {
         return Err("Drop a folder or RAW photos from one folder.".into());
     }
     if paths.len() == 1 && paths[0].is_dir() {
-        return Ok(DropRequest { root: paths[0].clone(), files: Vec::new() });
+        return Ok(DropRequest {
+            root: paths[0].clone(),
+            files: Vec::new(),
+        });
     }
     let mut root = None;
     let mut files = Vec::new();
     let mut seen = HashSet::new();
     for path in paths {
-        let metadata = path.metadata().map_err(|_| format!("Cannot access {}.", path.display()))?;
+        let metadata = path
+            .metadata()
+            .map_err(|_| format!("Cannot access {}.", path.display()))?;
         if !metadata.is_file() {
-            return Err("Drop one folder, or photos from one folder; do not mix folders and files.".into());
+            return Err(
+                "Drop one folder, or photos from one folder; do not mix folders and files.".into(),
+            );
         }
         let extension = path.extension().unwrap_or_default().as_encoded_bytes();
         if !culltronic_core::is_supported_extension(extension)
             && !extension.eq_ignore_ascii_case(b"jpg")
             && !extension.eq_ignore_ascii_case(b"jpeg")
         {
-            return Err(format!("Unsupported file: {}. Drop RAW photos or their companion JPEGs.", path.display()));
+            return Err(format!(
+                "Unsupported file: {}. Drop RAW photos or their companion JPEGs.",
+                path.display()
+            ));
         }
-        let parent = path.parent().ok_or("Cannot determine the photo's folder.")?;
+        let parent = path
+            .parent()
+            .ok_or("Cannot determine the photo's folder.")?;
         if root.as_deref().is_some_and(|root| root != parent) {
             return Err("The dropped photos must come from the same folder.".into());
         }
         root = Some(parent.to_owned());
-        let file = path.file_name().ok_or("Cannot determine the photo's filename.")?;
+        let file = path
+            .file_name()
+            .ok_or("Cannot determine the photo's filename.")?;
         if seen.insert(file.to_owned()) {
             files.push(PathBuf::from(file));
         }
     }
-    Ok(DropRequest { root: root.ok_or("No photos were dropped.")?, files })
+    Ok(DropRequest {
+        root: root.ok_or("No photos were dropped.")?,
+        files,
+    })
 }
 
 #[cfg(test)]
@@ -73,7 +96,10 @@ mod tests {
         let photo = dir.path().join("旅行 photo.CR3");
         std::fs::write(&photo, b"raw").unwrap();
         assert!(resolve(vec![dir.path().into()]).unwrap().files.is_empty());
-        assert_eq!(resolve(vec![photo.clone(), photo]).unwrap().files, vec![PathBuf::from("旅行 photo.CR3")]);
+        assert_eq!(
+            resolve(vec![photo.clone(), photo]).unwrap().files,
+            vec![PathBuf::from("旅行 photo.CR3")]
+        );
     }
 
     #[test]

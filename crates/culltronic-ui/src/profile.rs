@@ -27,7 +27,9 @@ fn migrate_window_state(old: &Path, new: &Path) -> anyhow::Result<()> {
     if new.try_exists()? || !old.try_exists()? {
         return Ok(());
     }
-    let parent = new.parent().ok_or_else(|| anyhow::anyhow!("Invalid window state path"))?;
+    let parent = new
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Invalid window state path"))?;
     std::fs::create_dir_all(parent)?;
     let mut temp = tempfile::NamedTempFile::new_in(parent)?;
     std::io::copy(&mut std::fs::File::open(old)?, &mut temp)?;
