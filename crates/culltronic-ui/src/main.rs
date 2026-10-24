@@ -14,16 +14,15 @@ use std::sync::Arc;
 use eframe::egui;
 
 fn main() -> anyhow::Result<()> {
-    if let Err(error) = run() {
+    run().inspect_err(|error| {
+        tracing::error!(%error, "startup failed");
         #[cfg(windows)]
         rfd::MessageDialog::new()
             .set_title("Culltronic could not start")
             .set_description(format!("{error:#}"))
             .set_level(rfd::MessageLevel::Error)
             .show();
-        return Err(error);
-    }
-    Ok(())
+    })
 }
 
 fn run() -> anyhow::Result<()> {
