@@ -44,6 +44,9 @@ jobs:
       - name: Tests
         run: cargo test --locked --workspace
 
+      - name: Packaging audit tests
+        run: python -m unittest discover -s packaging -p "test_*.py"
+
       - name: Build Windows portable package
         if: runner.os == 'Windows'
         shell: pwsh

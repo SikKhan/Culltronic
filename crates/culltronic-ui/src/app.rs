@@ -33,6 +33,11 @@ const FRAME_PULSE: Duration = Duration::from_millis(33);
 
 /// Events produced by background jobs and drained by the App every frame.
 enum Event {
+    /// Filesystem validation of a drop completed off the UI thread.
+    DropPrepared {
+        generation: u64,
+        result: Result<crate::drops::DropRequest, String>,
+    },
     /// A folder scan finished (successfully or not).
     ScanFinished {
         /// Unique scan identity, including repeated opens of the same folder.
@@ -90,6 +95,7 @@ enum Screen {
 /// Root of the UI state machine; owns views and pumps core events per frame.
 pub struct App {
     scan_generation: u64,
+    preparing_drop: bool,
     pending_drop: Option<Vec<PathBuf>>,
     drop_note: Option<String>,
     db: Arc<Db>,
@@ -139,6 +145,7 @@ impl App {
             .unwrap_or_else(|| (None, None));
         Self {
             scan_generation: 0,
+            preparing_drop: false,
             pending_drop: None,
             drop_note: None,
             db,
@@ -168,6 +175,7 @@ impl App {
     /// placeholders appear without waiting (SPEC §5.1); any ingest still
     /// running for the previous folder is cancelled up front.
     pub(crate) fn open_folder(&mut self, root: PathBuf) {
+        self.preparing_drop = false;
         self.pending_drop = None;
         self.drop_note = None;
         self.mount_folder(&root);
@@ -235,6 +243,19 @@ impl App {
     fn drain_events(&mut self) {
         while let Ok(event) = self.events_rx.try_recv() {
             match event {
+                Event::DropPrepared { generation, result } => {
+                    if !self.preparing_drop || generation != self.scan_generation {
+                        continue;
+                    }
+                    self.preparing_drop = false;
+                    match result {
+                        Ok(request) => {
+                            self.pending_drop = Some(request.files);
+                            self.scan_folder(request.root);
+                        }
+                        Err(message) => self.drop_note = Some(message),
+                    }
+                }
                 Event::ScanFinished {
                     generation,
                     root,
@@ -363,6 +384,7 @@ impl App {
     /// idle screens cost zero wakeups.
     fn schedule_repaint(&self, ctx: &egui::Context) {
         let busy = self.scanning.is_some()
+            || self.preparing_drop
             || matches!(&self.screen, Screen::Grid(grid) if grid.is_ingesting() || grid.is_exporting())
             || self.textures.busy();
         if busy {
@@ -403,6 +425,7 @@ impl App {
             }
             Some(Action::BackToHome) => {
                 self.scanning = None;
+                self.preparing_drop = false;
                 self.pending_drop = None;
                 if let Some(pipeline) = &self.pipeline {
                     pipeline.cancel();
@@ -553,16 +576,18 @@ impl App {
             return;
         }
         let paths = dropped.iter().map(|file| file.path().to_owned()).collect();
-        let resolved = crate::drops::resolve(paths);
-        match resolved {
-            Ok(request) => {
-                // Keep the current view until the scan validates all pair members.
-                self.pending_drop = Some(request.files);
-                self.drop_note = Some("Opening dropped photos…".into());
-                self.scan_folder(request.root);
-            }
-            Err(message) => self.drop_note = Some(message),
-        }
+        // Metadata on an unavailable drive can block: do all drop I/O off-thread.
+        self.scan_generation += 1;
+        let generation = self.scan_generation;
+        self.preparing_drop = true;
+        self.pending_drop = None;
+        self.scanning = None;
+        self.drop_note = Some("Opening dropped photos…".into());
+        let sender = self.events_tx.clone();
+        std::thread::spawn(move || {
+            let result = crate::drops::resolve(paths);
+            let _sent = sender.send(Event::DropPrepared { generation, result });
+        });
     }
 
     fn draw_drop_feedback(&mut self, ctx: &egui::Context) {
@@ -601,8 +626,10 @@ impl eframe::App for App {
         // a modal or the export confirmation is up the views render but
         // stay input-suspended.
         self.modals.pump_input(&ctx);
-        let suspended =
-            self.modals.any() || self.pending_export.is_some() || self.pending_drop.is_some();
+        let suspended = self.modals.any()
+            || self.pending_export.is_some()
+            || self.pending_drop.is_some()
+            || self.preparing_drop;
 
         match &mut self.screen {
             Screen::Home(home) => {
@@ -704,6 +731,7 @@ mod tests {
         let (events_tx, events_rx) = crossbeam_channel::unbounded();
         App {
             scan_generation: 0,
+            preparing_drop: false,
             pending_drop: None,
             drop_note: None,
             db: Arc::new(db),

@@ -84,6 +84,8 @@ jobs:
       - name: Build portable ZIP
         shell: pwsh
         run: ./packaging/build-windows.ps1
+      - name: Packaging audit tests
+        run: python -m unittest discover -s packaging -p "test_*.py"
       - name: Smoke-test extracted package
         shell: pwsh
         run: ./packaging/test-windows.ps1
