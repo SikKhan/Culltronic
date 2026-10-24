@@ -557,6 +557,15 @@ impl App {
 }
 
 impl App {
+    /// Retire slow drop work while keeping the current folder and selection.
+    fn cancel_pending_drop(&mut self) {
+        self.scan_generation += 1;
+        self.preparing_drop = false;
+        self.pending_drop = None;
+        self.scanning = None;
+        self.drop_note = None;
+    }
+
     /// Reject drops during modal/export work; never cancel a copy by accident.
     fn pump_drops(&mut self, ctx: &egui::Context) {
         let dropped = ctx.input_mut(|input| std::mem::take(&mut input.raw.dropped_files));
@@ -615,7 +624,11 @@ impl eframe::App for App {
             egui::Panel::top("drop_status").show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.label(note);
-                    if ui.small_button("Dismiss").clicked() {
+                    if self.preparing_drop || self.pending_drop.is_some() {
+                        if ui.small_button("Cancel").clicked() {
+                            self.cancel_pending_drop();
+                        }
+                    } else if ui.small_button("Dismiss").clicked() {
                         self.drop_note = None;
                     }
                 });
@@ -800,5 +813,28 @@ mod tests {
             assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
             assert!(app.drop_note.is_some());
         }
+    }
+
+    #[test]
+    fn cancelled_drop_ignores_late_filesystem_validation() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        let original = dir.path().join("original");
+        app.mount_folder(&original);
+        app.preparing_drop = true;
+        app.cancel_pending_drop();
+        app.events_tx
+            .send(Event::DropPrepared {
+                generation: 0,
+                result: Ok(crate::drops::DropRequest {
+                    root: dir.path().join("late drop"),
+                    files: Vec::new(),
+                }),
+            })
+            .unwrap();
+        app.drain_events();
+        assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
+        assert!(app.scanning.is_none());
+        assert!(!app.preparing_drop);
     }
 }
