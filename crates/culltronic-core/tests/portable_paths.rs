@@ -36,7 +36,10 @@ fn unicode_pair_identity_and_labels_survive_reopen_and_export() {
     assert_eq!(entries[0].id, id);
     assert_eq!(entries[0].label, Label::Green);
     assert_eq!(entries[0].rot_cw, 1);
-    assert_eq!(reopened.kv_get("auto_advance").unwrap().as_deref(), Some("true"));
+    assert_eq!(
+        reopened.kv_get("auto_advance").unwrap().as_deref(),
+        Some("true")
+    );
     assert_eq!(reopened.recent_roots(1).unwrap(), vec![source]);
     let report = export_files(&[raw, jpeg], &destination, &AtomicBool::new(false), |_| {}).unwrap();
     assert_eq!(report.copied, 2);
