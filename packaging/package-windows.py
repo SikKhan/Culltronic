@@ -13,10 +13,10 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGET = "x86_64-pc-windows-msvc"
 # Windows 10/11 system libraries. Everything else must be explicitly bundled/audited.
 SYSTEM_DLLS = set("""advapi32 bcrypt bcryptprimitives cfgmgr32 comctl32 comdlg32
-crypt32 d2d1 d3d11 d3d12 d3dcompiler_47 dbghelp dwmapi dwrite dxgi gdi32 hid
+combase crypt32 d2d1 d3d11 d3d12 d3dcompiler_47 dbghelp dwmapi dwrite dxgi gdi32 hid
 imm32 iphlpapi kernel32 msimg32 msvcrt ncrypt netapi32 ntdll ole32 oleaut32
 opengl32 powrprof propsys psapi rpcrt4 secur32 setupapi shell32 shlwapi
-ucrtbase user32 userenv usp10 uxtheme version winhttp winmm winspool wintrust
+ucrtbase uiautomationcore user32 userenv usp10 uxtheme version winhttp winmm winspool wintrust
 ws2_32 wtsapi32 normaliz runtimeobject shcore windowscodecs""".split())
 
 
