@@ -234,7 +234,7 @@ mod tests {
     fn names(photos: &[PhotoMeta]) -> Vec<String> {
         photos
             .iter()
-            .map(|p| p.rel_path.to_string_lossy().into_owned())
+            .map(|p| p.rel_path.to_string_lossy().replace('\\', "/"))
             .collect()
     }
 
