@@ -137,10 +137,18 @@ def main():
             "Rust stable and MSVC build tools, then run packaging/build-windows.ps1.\n"
             "The resulting executable can replace this one. No signing key is required.\n",
             encoding="utf-8")
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
-            for path in sorted(staging.rglob("*")):
-                if path.is_file():
-                    bundle.write(path, path.relative_to(Path(temporary)))
+        # Registry archives can timestamp notices at Unix epoch, before ZIP's 1980 floor.
+        # Write beside the destination and replace only a complete archive.
+        with tempfile.NamedTemporaryFile(dir=dist, suffix=".zip", delete=False) as pending:
+            pending_archive = Path(pending.name)
+        try:
+            with zipfile.ZipFile(pending_archive, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as bundle:
+                for path in sorted(staging.rglob("*")):
+                    if path.is_file():
+                        bundle.write(path, path.relative_to(Path(temporary)))
+            pending_archive.replace(archive)
+        finally:
+            pending_archive.unlink(missing_ok=True)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix(".zip.sha256").write_text(f"{digest}  {archive.name}\n", encoding="ascii")
     print(f"Packaged {archive}\nSHA-256 {digest}\nSystem imports: {', '.join(imports)}")
