@@ -307,7 +307,7 @@ impl App {
                     }
                 }
                 Event::ExportFinished { root, result } => {
-                    if !self.export_job.as_ref().is_some_and(|job| job.root == root) {
+                    if self.export_job.as_ref().is_none_or(|job| job.root != root) {
                         continue;
                     }
                     self.cancel_export();
