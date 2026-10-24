@@ -20,6 +20,30 @@ ucrtbase user32 userenv usp10 uxtheme version winhttp winmm winspool wintrust
 ws2_32 wtsapi32 normaliz runtimeobject shcore windowscodecs""".split())
 
 
+def collect_license_files(dependency, destination):
+    """Collect nested notices/fonts plus reviewed supplements missing from crates."""
+    folder = Path(dependency["manifest_path"]).parent
+    destination.mkdir(parents=True, exist_ok=True)
+    sources = {path for path in folder.rglob("*") if path.is_file() and (
+        path.name.lower().startswith(("license", "licence", "copying", "notice", "copyright", "authors"))
+        or path.name in ("OFL.txt", "UFL.txt")
+        or ("fonts" in path.parts and path.suffix == ".txt"))}
+    if dependency.get("license_file"):
+        sources.add(folder / dependency["license_file"])
+    for source in sources:
+        relative = source.relative_to(folder)
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    supplements = ROOT / "packaging/licenses"
+    manifest = json.loads((supplements / "packages.json").read_text(encoding="utf-8"))
+    key = f'{dependency["name"]}-{dependency["version"]}'
+    for name in manifest.get(key, []):
+        shutil.copy2(supplements / name, destination / name)
+    if not sources and key not in manifest:
+        raise ValueError(f"Missing license texts for {key}; review its pinned upstream source")
+
+
 def pe_imports(binary):
     """Read PE32+ headers/import table without depending on developer tools."""
     data = binary.read_bytes()
@@ -92,21 +116,14 @@ def main():
         notices = staging / "licenses"
         notices.mkdir()
         shutil.copy2(ROOT / "crates/culltronic-ui/assets/fonts/OFL.txt", notices / "Inter-OFL.txt")
+        shutil.copy2(ROOT / "packaging/licenses/sources.json", notices / "supplement-sources.json")
         packages = []
         reachable = {node["id"] for node in metadata["resolve"]["nodes"]}
         for dependency in metadata["packages"]:
             if dependency["id"] not in reachable or dependency["source"] is None:
                 continue
-            folder = Path(dependency["manifest_path"]).parent
             destination = notices / f'{dependency["name"]}-{dependency["version"]}'
-            destination.mkdir()
-            sources = set()
-            for pattern in ("LICENSE*", "LICENCE*", "COPYING*", "NOTICE*", "license*", "licence*"):
-                sources.update(path for path in folder.glob(pattern) if path.is_file())
-            if dependency.get("license_file"):
-                sources.add(folder / dependency["license_file"])
-            for source in sources:
-                shutil.copy2(source, destination / source.name)
+            collect_license_files(dependency, destination)
             packages.append({key: dependency.get(key) for key in ("name", "version", "license", "repository", "source")})
         (staging / "THIRD-PARTY-NOTICES.json").write_text(json.dumps(packages, indent=2), encoding="utf-8")
         (staging / "BUILD-INFO.json").write_text(json.dumps({"version": version, "commit": commit,

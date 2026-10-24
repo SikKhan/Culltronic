@@ -3,6 +3,8 @@
 import importlib.util
 from pathlib import Path
 import struct
+import json
+import subprocess
 import tempfile
 import unittest
 
@@ -49,6 +51,22 @@ class ImportAuditTests(unittest.TestCase):
     def test_rejects_wrong_architecture(self):
         with self.assertRaisesRegex(ValueError, "Windows x64"):
             self.audit(machine=0x14C)
+
+    def test_locked_dependencies_all_have_license_texts(self):
+        metadata = json.loads(subprocess.check_output(
+            ["cargo", "metadata", "--locked", "--format-version", "1", "--filter-platform", packager.TARGET],
+            cwd=packager.ROOT))
+        reachable = {node["id"] for node in metadata["resolve"]["nodes"]}
+        with tempfile.TemporaryDirectory() as temporary:
+            for dependency in metadata["packages"]:
+                if dependency["id"] not in reachable or dependency["source"] is None:
+                    continue
+                destination = Path(temporary) / f'{dependency["name"]}-{dependency["version"]}'
+                packager.collect_license_files(dependency, destination)
+                if dependency["name"] == "epaint_default_fonts":
+                    self.assertTrue((destination / "fonts/OFL.txt").is_file())
+                    self.assertTrue((destination / "fonts/UFL.txt").is_file())
+                    self.assertTrue((destination / "fonts/Hack-Regular.txt").is_file())
 
 
 if __name__ == "__main__":
