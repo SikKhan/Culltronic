@@ -1,0 +1,71 @@
+{
+  "ecolor-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "eframe-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "egui-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "egui-wgpu-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "egui-winit-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "egui_glow-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "emath-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "epaint-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "epaint_default_fonts-0.36.1": [
+    "egui-MIT.txt"
+  ],
+  "accesskit-0.24.1": [
+    "accesskit-APACHE.txt",
+    "accesskit-MIT.txt",
+    "accesskit-chromium.txt",
+    "accesskit-AUTHORS.txt"
+  ],
+  "accesskit_consumer-0.35.0": [
+    "accesskit-APACHE.txt",
+    "accesskit-MIT.txt",
+    "accesskit-chromium.txt",
+    "accesskit-AUTHORS.txt"
+  ],
+  "accesskit_windows-0.32.1": [
+    "accesskit-APACHE.txt",
+    "accesskit-MIT.txt",
+    "accesskit-chromium.txt",
+    "accesskit-AUTHORS.txt"
+  ],
+  "accesskit_winit-0.32.2": [
+    "accesskit-APACHE.txt",
+    "accesskit-MIT.txt",
+    "accesskit-chromium.txt",
+    "accesskit-AUTHORS.txt"
+  ],
+  "alloc-stdlib-0.2.4": [
+    "alloc-stdlib-BSD.txt"
+  ],
+  "clipboard-win-5.4.1": [
+    "clipboard-win-BSL.txt"
+  ],
+  "profiling-1.0.18": [
+    "profiling-MIT.txt"
+  ],
+  "gl_generator-0.14.0": [
+    "gl-generator-APACHE.txt"
+  ],
+  "khronos_api-3.1.0": [
+    "khronos-api-APACHE.txt"
+  ],
+  "spirv-0.4.0+sdk-1.4.341.0": [
+    "spirv-APACHE.txt"
+  ]
+}

@@ -325,6 +325,21 @@ impl GridView {
         }
     }
 
+    /// Select dropped tile ids and reveal the first, without changing pointer selection rules.
+    pub(crate) fn select_dropped(&mut self, ids: &[PhotoId]) {
+        if ids.is_empty() {
+            return;
+        }
+        self.selection = ids.iter().copied().collect();
+        self.cursor = self
+            .view
+            .iter()
+            .position(|&row| self.entries[row].id == ids[0]);
+        self.anchor = self.cursor;
+        self.scroll_target = self.cursor;
+        self.reset_scroll = false;
+    }
+
     /// Announces a running ingest batch of `total` photos.
     pub fn begin_ingest(&mut self, total: usize) {
         self.ingest_total = total;
@@ -2241,6 +2256,27 @@ mod tests {
             .collect();
         grid.apply_scan(Ok(entries));
         grid
+    }
+
+    #[test]
+    fn dropped_pair_members_select_one_tile_and_reveal_it() {
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        grid.entries[2].jpeg_rel_path = Some("IMG_0003.JPG".into());
+        let ids = crate::drops::photo_ids(
+            &grid.entries,
+            &[
+                "IMG_0003.JPG".into(),
+                "IMG_0003.CR3".into(),
+                "IMG_0002.CR3".into(),
+            ],
+        )
+        .expect("pair maps to RAW tile");
+        grid.select_dropped(&ids);
+        assert_eq!(grid.selection.len(), 2);
+        assert_eq!(grid.cursor, Some(2));
+        assert_eq!(grid.scroll_target, Some(2));
+        assert_eq!(grid.anchor, Some(2));
+        assert!(crate::drops::photo_ids(&grid.entries, &["unpaired.JPG".into()]).is_err());
     }
 
     #[test]

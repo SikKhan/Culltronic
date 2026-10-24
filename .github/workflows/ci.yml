@@ -7,16 +7,22 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
 
 jobs:
   checks:
-    name: fmt + clippy + test (ubuntu)
-    runs-on: ubuntu-latest
+    name: fmt + clippy + test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install system dependencies (egui/winit on Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -33,7 +39,28 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Tests
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
+
+      - name: Packaging audit tests
+        run: python -m unittest discover -s packaging -p "test_*.py"
+
+      - name: Build Windows portable package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/build-windows.ps1
+
+      - name: Smoke-test extracted Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/test-windows.ps1
+
+      - name: Upload Windows validation package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/culltronic-*-windows-x86_64.zip*
+          if-no-files-found: error

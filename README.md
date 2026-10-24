@@ -42,6 +42,36 @@ Open a folder, browse embedded JPEG previews instantly, mark colors and filter.
 
 ## Install & build
 
+### Windows portable build
+
+Windows support is being validated in [issue #2](https://github.com/SikKhan/Culltronic/issues/2).
+The Windows CI artifact contains a versioned x64 ZIP and SHA-256 checksum.
+Extract the ZIP and run `culltronic-ui.exe`; no installer or administrator access
+is needed. Builds use the static MSVC runtime and bundled SQLite. Graphics use
+the Windows graphics stack and installed GPU drivers.
+
+Settings, labels, rotations, recents, the index and cached JPEGs stay under
+`%LOCALAPPDATA%\cullr`, independently of the extracted application folder.
+Close the app and replace its extracted files to upgrade. Window state from
+the previous roaming AppData location is copied once, retaining the old file.
+Linux data locations remain unchanged.
+
+Drop a folder to browse it, or RAW photos from one folder to select them.
+A companion JPEG selects its RAW+JPEG pair. Copy originals out with Export
+(`Ctrl+E`); native drag-out is outside scope.
+
+Build/package on Windows with Rust, MSVC build tools and Python 3 installed:
+
+```powershell
+./packaging/build-windows.ps1
+```
+
+See [the Windows validation checklist](docs/windows-validation.md) for the
+remaining clean-machine and interaction checks. CI smoke tests alone do not
+establish release readiness.
+
+### Linux downloads
+
 **Download:** packages from v0.1.1 onward use the `culltronic` name as shown below. Older releases use `cullr`. Grab a package for your distro from the [latest release](https://github.com/SikKhan/Culltronic/releases/latest):
 
 | Distro | Install |
