@@ -552,10 +552,8 @@ impl App {
             );
             return;
         }
-        let paths: Option<Vec<_>> = dropped.into_iter().map(|file| file.path).collect();
-        let resolved = paths
-            .ok_or_else(|| "Drop local files or a folder from your file manager.".to_owned())
-            .and_then(crate::drops::resolve);
+        let paths = dropped.iter().map(|file| file.path().to_owned()).collect();
+        let resolved = crate::drops::resolve(paths);
         match resolved {
             Ok(request) => {
                 // Keep the current view until the scan validates all pair members.
@@ -589,7 +587,7 @@ impl eframe::App for App {
         self.drain_events();
         self.pump_drops(&ctx);
         if let Some(note) = self.drop_note.clone() {
-            egui::TopBottomPanel::top("drop_status").show(ui, |ui| {
+            egui::Panel::top("drop_status").show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.label(note);
                     if ui.small_button("Dismiss").clicked() {
@@ -731,19 +729,23 @@ mod tests {
         app.scan_generation = 2;
         app.scanning = Some(root.clone());
         app.pending_drop = Some(Vec::new());
-        app.events_tx.send(Event::ScanFinished {
-            generation: 1,
-            root: root.clone(),
-            result: Ok(Vec::new()),
-        }).unwrap();
+        app.events_tx
+            .send(Event::ScanFinished {
+                generation: 1,
+                root: root.clone(),
+                result: Ok(Vec::new()),
+            })
+            .unwrap();
         app.drain_events();
         assert!(matches!(app.screen, Screen::Home(_)));
         assert!(app.pending_drop.is_some());
-        app.events_tx.send(Event::ScanFinished {
-            generation: 2,
-            root: root.clone(),
-            result: Ok(Vec::new()),
-        }).unwrap();
+        app.events_tx
+            .send(Event::ScanFinished {
+                generation: 2,
+                root: root.clone(),
+                result: Ok(Vec::new()),
+            })
+            .unwrap();
         app.drain_events();
         assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&root)));
         assert!(app.pending_drop.is_none());
@@ -759,11 +761,13 @@ mod tests {
         for result in [Ok(Vec::new()), Err("Access denied".into())] {
             app.scanning = Some(dropped.clone());
             app.pending_drop = Some(vec!["unpaired.JPG".into()]);
-            app.events_tx.send(Event::ScanFinished {
-                generation: 0,
-                root: dropped.clone(),
-                result,
-            }).unwrap();
+            app.events_tx
+                .send(Event::ScanFinished {
+                    generation: 0,
+                    root: dropped.clone(),
+                    result,
+                })
+                .unwrap();
             app.drain_events();
             assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
             assert!(app.drop_note.is_some());

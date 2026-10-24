@@ -74,6 +74,12 @@ pub fn scan_folder(root: &Path, options: ScanOptions) -> Result<Vec<PhotoMeta>, 
     if !metadata.is_dir() {
         return Err(ScanError::NotADirectory(root.to_owned()));
     }
+    // A denied root must surface as an error, not an apparently empty folder.
+    // Individual failures below the root remain best-effort as before.
+    std::fs::read_dir(root).map_err(|source| ScanError::Stat {
+        path: root.to_owned(),
+        source,
+    })?;
 
     let max_depth = if options.recursive { usize::MAX } else { 1 };
     let mut photos: Vec<PhotoMeta> = Vec::new();
