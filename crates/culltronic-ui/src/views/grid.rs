@@ -2318,16 +2318,25 @@ mod tests {
         let start = egui::pos2(geom.width * 2.0 + GAP + 2.0, geom.height + 2.0);
         let end = egui::pos2(1.0, 1.0);
         let button = |pos, pressed| egui::Event::PointerButton {
-            pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE,
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
         };
         for events in [
             vec![egui::Event::PointerMoved(start), button(start, true)],
             vec![egui::Event::PointerMoved(end)],
             vec![button(end, false)],
         ] {
-            let mut full = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
-                grid.step_marquee(ui, Some(egui::Pos2::ZERO), 3, viewport, geom);
-            });
+            let mut full = ctx.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    grid.step_marquee(ui, Some(egui::Pos2::ZERO), 3, viewport, geom);
+                },
+            );
             full.textures_delta.clear();
         }
         assert_eq!(grid.selection, [PhotoId(1), PhotoId(2)].into_iter().collect());
