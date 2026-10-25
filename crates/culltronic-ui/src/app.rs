@@ -728,7 +728,13 @@ fn install_windows_font_fallbacks(fonts: &mut egui::FontDefinitions) {
         return;
     };
     let directory = PathBuf::from(windows).join("Fonts");
-    for name in ["msyh.ttc", "msjh.ttc", "YuGothR.ttc", "malgun.ttf", "segoeui.ttf"] {
+    for name in [
+        "msyh.ttc",
+        "msjh.ttc",
+        "YuGothR.ttc",
+        "malgun.ttf",
+        "segoeui.ttf",
+    ] {
         if let Ok(bytes) = std::fs::read(directory.join(name)) {
             fonts
                 .font_data

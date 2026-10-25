@@ -2277,21 +2277,28 @@ mod tests {
         let mut textures = Textures::new();
         let ctx = egui::Context::default();
         let mut exported = false;
-        let modifiers = egui::Modifiers { ctrl: true, command: true, ..Default::default() };
+        let modifiers = egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..Default::default()
+        };
         let raw = egui::RawInput {
-            events: vec![egui::Event::Key {
-                key: egui::Key::E,
-                physical_key: None,
-                pressed: true,
-                repeat: false,
-                modifiers,
-            }, egui::Event::Key {
-                key: egui::Key::E,
-                physical_key: None,
-                pressed: false,
-                repeat: false,
-                modifiers: egui::Modifiers::NONE,
-            }],
+            events: vec![
+                egui::Event::Key {
+                    key: egui::Key::E,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                },
+                egui::Event::Key {
+                    key: egui::Key::E,
+                    physical_key: None,
+                    pressed: false,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
             ..Default::default()
         };
         let mut full = ctx.run_ui(raw, |ui| {
