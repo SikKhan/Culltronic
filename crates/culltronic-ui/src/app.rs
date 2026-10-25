@@ -94,6 +94,7 @@ enum Screen {
 
 /// Root of the UI state machine; owns views and pumps core events per frame.
 pub struct App {
+    package_verification_frames: Option<u8>,
     scan_generation: u64,
     preparing_drop: bool,
     pending_drop: Option<Vec<PathBuf>>,
@@ -144,6 +145,7 @@ impl App {
             .map(|(p, rx)| (Some(p), Some(rx)))
             .unwrap_or_else(|| (None, None));
         Self {
+            package_verification_frames: None,
             scan_generation: 0,
             preparing_drop: false,
             pending_drop: None,
@@ -161,6 +163,11 @@ impl App {
             export_job: None,
             pending_export: None,
         }
+    }
+
+    /// Close after rendered UI frames, verifying renderer startup in packaged CI runs.
+    pub(crate) fn verify_package(&mut self) {
+        self.package_verification_frames = Some(3);
     }
 
     /// Cancels any in-flight export job; used when the browsed folder is
@@ -673,6 +680,15 @@ impl eframe::App for App {
 
         self.pump_priority();
         self.schedule_repaint(&ctx);
+        if let Some(frames) = &mut self.package_verification_frames {
+            *frames -= 1;
+            if *frames == 0 {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                self.package_verification_frames = None;
+            } else {
+                ctx.request_repaint();
+            }
+        }
     }
 }
 
@@ -700,7 +716,28 @@ fn install_fonts(ctx: &egui::Context) {
         .entry(egui::FontFamily::Proportional)
         .or_default()
         .insert(0, "inter_regular".into());
+    #[cfg(windows)]
+    install_windows_font_fallbacks(&mut fonts);
     ctx.set_fonts(fonts);
+}
+
+/// Use installed fonts for non-Latin filenames without redistributing system fonts.
+#[cfg(windows)]
+fn install_windows_font_fallbacks(fonts: &mut egui::FontDefinitions) {
+    let Some(windows) = std::env::var_os("SystemRoot") else {
+        return;
+    };
+    let directory = PathBuf::from(windows).join("Fonts");
+    for name in ["msyh.ttc", "msjh.ttc", "YuGothR.ttc", "malgun.ttf", "segoeui.ttf"] {
+        if let Ok(bytes) = std::fs::read(directory.join(name)) {
+            fonts
+                .font_data
+                .insert(name.into(), egui::FontData::from_owned(bytes).into());
+            for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+                fonts.families.entry(family).or_default().push(name.into());
+            }
+        }
+    }
 }
 
 fn install_theme(ctx: &egui::Context) {
@@ -743,6 +780,7 @@ mod tests {
     fn test_app(db: Db) -> App {
         let (events_tx, events_rx) = crossbeam_channel::unbounded();
         App {
+            package_verification_frames: None,
             scan_generation: 0,
             preparing_drop: false,
             pending_drop: None,

@@ -50,6 +50,9 @@ fn run() -> anyhow::Result<()> {
         options,
         Box::new(move |cc| {
             let mut app = app::App::new(cc, Arc::new(db));
+            if std::env::args_os().any(|arg| arg == "--verify-package") {
+                app.verify_package();
+            }
             if let Some(folder) = initial_folder {
                 app.open_folder(folder);
             }
@@ -68,6 +71,9 @@ fn parse_initial_folder() -> anyhow::Result<Option<std::path::PathBuf>> {
     if arg == "-h" || arg == "--help" {
         println!("usage: culltronic-ui [FOLDER]");
         std::process::exit(0);
+    }
+    if arg == "--verify-package" {
+        return Ok(None);
     }
     let path = std::path::PathBuf::from(arg);
     if !path.is_dir() {

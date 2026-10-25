@@ -542,8 +542,8 @@ impl GridView {
         let (select_all, select_none) = if sheet_keys {
             ui.ctx().input(|input| {
                 (
-                    input.key_pressed(egui::Key::A) && input.modifiers.command_only(),
-                    input.key_pressed(egui::Key::A) && input.modifiers.shift_only(),
+                    modified_key_pressed(input, egui::Key::A, |m| m.command_only()),
+                    modified_key_pressed(input, egui::Key::A, |m| m.shift_only()),
                 )
             })
         } else {
@@ -555,7 +555,7 @@ impl GridView {
         let export_key = sheet_keys
             && ui
                 .ctx()
-                .input(|input| input.key_pressed(egui::Key::E) && input.modifiers.command_only());
+                .input(|input| modified_key_pressed(input, egui::Key::E, |m| m.command_only()));
         // The filter preset key works everywhere in the folder, loupe
         // included, so "show me only what I marked" is one press away.
         if !self.loading && !suspended && ui.ctx().input(|input| input.key_pressed(egui::Key::F)) {
@@ -1912,6 +1912,18 @@ fn draw_strip(painter: &egui::Painter, cell: egui::Rect, entry: &PhotoEntry) {
     }
 }
 
+/// Match modifiers carried by the key event, even if released before this frame.
+fn modified_key_pressed(
+    input: &egui::InputState,
+    key: egui::Key,
+    matches: impl Fn(egui::Modifiers) -> bool,
+) -> bool {
+    input.events.iter().any(|event| {
+        matches!(event, egui::Event::Key { key: pressed, pressed: true, modifiers, .. }
+            if *pressed == key && matches(*modifiers))
+    })
+}
+
 /// Number of whole cells that fit in `width`, accounting for gaps.
 fn columns_for_width(width: f32, geom: CellGeom) -> usize {
     ((width + GAP) / geom.stride_x()).floor().max(0.0) as usize
@@ -2256,6 +2268,38 @@ mod tests {
             .collect();
         grid.apply_scan(Ok(entries));
         grid
+    }
+
+    #[test]
+    fn export_shortcut_survives_modifiers_released_in_the_same_frame() {
+        let (_dir, db) = db_for_tests();
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        let mut textures = Textures::new();
+        let ctx = egui::Context::default();
+        let mut exported = false;
+        let modifiers = egui::Modifiers { ctrl: true, command: true, ..Default::default() };
+        let raw = egui::RawInput {
+            events: vec![egui::Event::Key {
+                key: egui::Key::E,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            }, egui::Event::Key {
+                key: egui::Key::E,
+                physical_key: None,
+                pressed: false,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            ..Default::default()
+        };
+        let mut full = ctx.run_ui(raw, |ui| {
+            exported |= matches!(grid.ui(ui, &db, &mut textures, false),
+                Some(Action::Export { files, .. }) if files.len() == 3);
+        });
+        full.textures_delta.clear();
+        assert!(exported, "a quick Ctrl+E must still queue Export");
     }
 
     #[test]

@@ -15,16 +15,10 @@ try {
     Expand-Archive -LiteralPath $archive.FullName -DestinationPath $scratch
     $exe = Get-ChildItem -LiteralPath $scratch -Recurse -Filter culltronic-ui.exe | Select-Object -First 1
     if (-not $exe) { throw 'Executable missing from ZIP' }
-    $process = Start-Process -FilePath $exe.FullName -WorkingDirectory $scratch -WindowStyle Hidden -PassThru
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
-    do {
-        Start-Sleep -Milliseconds 250
-        $process.Refresh()
-        if ($process.HasExited) { throw "Packaged app exited before showing its window: $($process.ExitCode)" }
-    } until ($process.MainWindowHandle -ne 0 -or [DateTime]::UtcNow -ge $deadline)
-    if ($process.MainWindowHandle -eq 0) { throw 'Packaged app did not create a window' }
-    if (-not $process.CloseMainWindow()) { throw 'Could not request normal app shutdown' }
-    if (-not $process.WaitForExit(15000)) { throw 'Packaged app did not close normally' }
+    # The app exits successfully only after renderer initialization and three UI frames.
+    # Avoid MainWindowHandle: Windows may initially return an IME/helper window.
+    $process = Start-Process -FilePath $exe.FullName -ArgumentList '--verify-package' -WorkingDirectory $scratch -WindowStyle Hidden -PassThru
+    if (-not $process.WaitForExit(60000)) { throw 'Packaged startup/render/shutdown verification timed out' }
     if ($process.ExitCode -ne 0) { throw "Packaged app failed: $($process.ExitCode)" }
     Write-Output "Extracted ZIP launched and closed successfully: $($archive.Name)"
 } finally {
