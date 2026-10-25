@@ -1382,12 +1382,12 @@ impl GridView {
         if released {
             let dragging = marquee.dragging;
             let on_tile = point_on_tile(origin, marquee.start, columns, self.view.len(), geom);
-            self.selection = std::mem::take(&mut marquee.base);
             if dragging {
                 // The band owns the final word on the set; swallow the
                 // release so it cannot double as a tile click.
                 return true;
             }
+            self.selection = std::mem::take(&mut marquee.base);
             if !on_tile {
                 // A press-and-release that never became a drag is a
                 // click: on bare sheet it means "select nothing".
@@ -2307,6 +2307,31 @@ mod tests {
         });
         full.textures_delta.clear();
         assert!(exported, "a quick Ctrl+E must still queue Export");
+    }
+
+    #[test]
+    fn box_selection_survives_the_pointer_release() {
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        let ctx = egui::Context::default();
+        let geom = CellGeom::default();
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let start = egui::pos2(geom.width * 2.0 + GAP + 2.0, geom.height + 2.0);
+        let end = egui::pos2(1.0, 1.0);
+        let button = |pos, pressed| egui::Event::PointerButton {
+            pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE,
+        };
+        for events in [
+            vec![egui::Event::PointerMoved(start), button(start, true)],
+            vec![egui::Event::PointerMoved(end)],
+            vec![button(end, false)],
+        ] {
+            let mut full = ctx.run_ui(egui::RawInput { events, ..Default::default() }, |ui| {
+                grid.step_marquee(ui, Some(egui::Pos2::ZERO), 3, viewport, geom);
+            });
+            full.textures_delta.clear();
+        }
+        assert_eq!(grid.selection, [PhotoId(1), PhotoId(2)].into_iter().collect());
+        assert!(grid.marquee.is_none());
     }
 
     #[test]
