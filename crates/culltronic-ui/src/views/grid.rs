@@ -2339,7 +2339,10 @@ mod tests {
             );
             full.textures_delta.clear();
         }
-        assert_eq!(grid.selection, [PhotoId(1), PhotoId(2)].into_iter().collect());
+        assert_eq!(
+            grid.selection,
+            [PhotoId(1), PhotoId(2)].into_iter().collect()
+        );
         assert!(grid.marquee.is_none());
     }
 
