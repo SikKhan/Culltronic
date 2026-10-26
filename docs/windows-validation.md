@@ -46,6 +46,21 @@ that fallback on the clean machine, where development tools/DXC are absent.
 
 ## Current status
 
-Implementation and automated evidence belong in the linked PR/issue. This
-checklist intentionally contains no pre-claimed manual or clean-machine passes.
-The issue remains open until evidence for the exact packaged ZIP is recorded.
+On 26 October 2026, the user reported that clean Windows testing and complete
+interaction testing worked without hiccups. Record these as user-reported passes;
+the report did not include the tested ZIP checksum, OS builds or account details,
+so the individual evidence boxes above remain available for that information.
+This supersedes the earlier report that clean-machine testing was blocked.
+
+The user separately reported an export failure: Ctrl-selecting two photos and
+clicking Export copied the whole folder. A full egui input regression reproduced
+the failure: the floating export control's press reached the underlying sheet's
+marquee handler, clearing selection before Export resolved its file list.
+Marquee presses now require the sheet's layer to own the pointer location.
+The regression exercises Ctrl-selection, the export scope menu and Export in
+RAW-only, JPEG-only and RAW+JPEG modes, and verifies that bare-sheet clicks still
+clear selection. The updated packaged app requires an export recheck; the user's
+earlier manual passes describe the previous candidate.
+
+Implementation and automated evidence belong in the linked PR/issue. Keep the
+issue open while export validation and the remaining release evidence are pending.

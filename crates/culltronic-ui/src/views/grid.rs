@@ -1362,7 +1362,16 @@ impl GridView {
             )
         });
         if pressed {
-            if let Some(start) = pointer.filter(|start| viewport.contains(*start)) {
+            if let Some(start) = pointer.filter(|start| {
+                viewport.contains(*start)
+                    && ui
+                        .ctx()
+                        .layer_id_at(*start)
+                        .is_none_or(|layer| layer == ui.layer_id())
+            }) {
+                // Floating controls and their menus cover the sheet. Their
+                // presses must not arm a marquee or clear the selection
+                // before Export resolves its file list on release.
                 // The live set parks in `base`: ctrl-drag unions onto it,
                 // an aborted drag hands it back untouched.
                 self.marquee = Some(Marquee {
@@ -2307,6 +2316,131 @@ mod tests {
         });
         full.textures_delta.clear();
         assert!(exported, "a quick Ctrl+E must still queue Export");
+    }
+
+    #[test]
+    fn export_button_keeps_ctrl_selected_photos_in_every_file_mode() {
+        for mode in [ExportMode::All, ExportMode::RawOnly, ExportMode::JpegOnly] {
+            let (_dir, db) = db_for_tests();
+            let mut grid = grid_with(&[TestLabel::None; 4]);
+            grid.export_mode = mode;
+            for entry in &mut grid.entries {
+                entry.jpeg_rel_path = Some(entry.rel_path.with_extension("JPG"));
+            }
+            let ctx = egui::Context::default();
+            let mut textures = Textures::new();
+            let mut time = 0.0;
+            let mut frame = |grid: &mut GridView, mut events: Vec<egui::Event>, modifiers| {
+                time += 0.1;
+                events.insert(0, egui::Event::ModifiersChanged(modifiers));
+                let mut action = None;
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(1280.0, 800.0),
+                        )),
+                        time: Some(time),
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        if let Some(picked) = grid.ui(ui, &db, &mut textures, false) {
+                            action = Some(picked);
+                        }
+                    },
+                );
+                output.textures_delta.clear();
+                action
+            };
+            for _ in 0..3 {
+                frame(&mut grid, vec![], egui::Modifiers::NONE);
+            }
+            let ctrl = egui::Modifiers {
+                ctrl: true,
+                command: true,
+                ..Default::default()
+            };
+            let button = |pos, pressed, modifiers| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers,
+            };
+            for column in [0, 1] {
+                let pos = egui::pos2(
+                    40.0 + column as f32 * CellGeom::default().stride_x(),
+                    grid.settled_viewport_top + 40.0,
+                );
+                frame(
+                    &mut grid,
+                    vec![egui::Event::PointerMoved(pos), button(pos, true, ctrl)],
+                    ctrl,
+                );
+                frame(&mut grid, vec![button(pos, false, ctrl)], ctrl);
+            }
+            assert_eq!(grid.selection.len(), 2, "Ctrl-click must select two tiles");
+            let selected = grid.selection.clone();
+            let expected = grid.export_set(mode);
+            let rect = ctx
+                .memory(|memory| memory.area_rect(egui::Id::new("culltronic_export_control")))
+                .expect("export control is visible");
+            let chevron = egui::pos2(
+                rect.right() - 10.0 - EXPORT_CHEVRON_WIDTH / 2.0,
+                rect.center().y,
+            );
+            for pressed in [true, false] {
+                frame(
+                    &mut grid,
+                    vec![
+                        egui::Event::PointerMoved(chevron),
+                        button(chevron, pressed, egui::Modifiers::NONE),
+                    ],
+                    egui::Modifiers::NONE,
+                );
+            }
+            assert_eq!(
+                grid.selection, selected,
+                "scope menu must preserve selection"
+            );
+            let pos = egui::pos2(
+                rect.left() + 10.0 + EXPORT_BUTTON_WIDTH / 2.0,
+                rect.center().y,
+            );
+            frame(
+                &mut grid,
+                vec![
+                    egui::Event::PointerMoved(pos),
+                    button(pos, true, egui::Modifiers::NONE),
+                ],
+                egui::Modifiers::NONE,
+            );
+            let action = frame(
+                &mut grid,
+                vec![button(pos, false, egui::Modifiers::NONE)],
+                egui::Modifiers::NONE,
+            );
+            let Some(Action::Export { files, .. }) = action else {
+                panic!("clicking Export must produce an export action");
+            };
+            assert_eq!(files, expected, "Export must copy only the selected photos");
+            assert_eq!(grid.selection, selected, "Export must preserve selection");
+            let bare_sheet = egui::pos2(40.0, 500.0);
+            for pressed in [true, false] {
+                frame(
+                    &mut grid,
+                    vec![
+                        egui::Event::PointerMoved(bare_sheet),
+                        button(bare_sheet, pressed, egui::Modifiers::NONE),
+                    ],
+                    egui::Modifiers::NONE,
+                );
+            }
+            assert!(
+                grid.selection.is_empty(),
+                "bare sheet still clears selection"
+            );
+        }
     }
 
     #[test]
