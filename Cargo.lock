@@ -903,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "culltronic-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "crossbeam-channel",
  "dirs",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "culltronic-ui"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
