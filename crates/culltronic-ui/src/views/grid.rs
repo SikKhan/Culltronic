@@ -325,6 +325,21 @@ impl GridView {
         }
     }
 
+    /// Select dropped tile ids and reveal the first, without changing pointer selection rules.
+    pub(crate) fn select_dropped(&mut self, ids: &[PhotoId]) {
+        if ids.is_empty() {
+            return;
+        }
+        self.selection = ids.iter().copied().collect();
+        self.cursor = self
+            .view
+            .iter()
+            .position(|&row| self.entries[row].id == ids[0]);
+        self.anchor = self.cursor;
+        self.scroll_target = self.cursor;
+        self.reset_scroll = false;
+    }
+
     /// Announces a running ingest batch of `total` photos.
     pub fn begin_ingest(&mut self, total: usize) {
         self.ingest_total = total;
@@ -527,8 +542,8 @@ impl GridView {
         let (select_all, select_none) = if sheet_keys {
             ui.ctx().input(|input| {
                 (
-                    input.key_pressed(egui::Key::A) && input.modifiers.command_only(),
-                    input.key_pressed(egui::Key::A) && input.modifiers.shift_only(),
+                    modified_key_pressed(input, egui::Key::A, |m| m.command_only()),
+                    modified_key_pressed(input, egui::Key::A, |m| m.shift_only()),
                 )
             })
         } else {
@@ -540,7 +555,7 @@ impl GridView {
         let export_key = sheet_keys
             && ui
                 .ctx()
-                .input(|input| input.key_pressed(egui::Key::E) && input.modifiers.command_only());
+                .input(|input| modified_key_pressed(input, egui::Key::E, |m| m.command_only()));
         // The filter preset key works everywhere in the folder, loupe
         // included, so "show me only what I marked" is one press away.
         if !self.loading && !suspended && ui.ctx().input(|input| input.key_pressed(egui::Key::F)) {
@@ -1347,7 +1362,16 @@ impl GridView {
             )
         });
         if pressed {
-            if let Some(start) = pointer.filter(|start| viewport.contains(*start)) {
+            if let Some(start) = pointer.filter(|start| {
+                viewport.contains(*start)
+                    && ui
+                        .ctx()
+                        .layer_id_at(*start)
+                        .is_none_or(|layer| layer == ui.layer_id())
+            }) {
+                // Floating controls and their menus cover the sheet. Their
+                // presses must not arm a marquee or clear the selection
+                // before Export resolves its file list on release.
                 // The live set parks in `base`: ctrl-drag unions onto it,
                 // an aborted drag hands it back untouched.
                 self.marquee = Some(Marquee {
@@ -1367,12 +1391,12 @@ impl GridView {
         if released {
             let dragging = marquee.dragging;
             let on_tile = point_on_tile(origin, marquee.start, columns, self.view.len(), geom);
-            self.selection = std::mem::take(&mut marquee.base);
             if dragging {
                 // The band owns the final word on the set; swallow the
                 // release so it cannot double as a tile click.
                 return true;
             }
+            self.selection = std::mem::take(&mut marquee.base);
             if !on_tile {
                 // A press-and-release that never became a drag is a
                 // click: on bare sheet it means "select nothing".
@@ -1897,6 +1921,18 @@ fn draw_strip(painter: &egui::Painter, cell: egui::Rect, entry: &PhotoEntry) {
     }
 }
 
+/// Match modifiers carried by the key event, even if released before this frame.
+fn modified_key_pressed(
+    input: &egui::InputState,
+    key: egui::Key,
+    matches: impl Fn(egui::Modifiers) -> bool,
+) -> bool {
+    input.events.iter().any(|event| {
+        matches!(event, egui::Event::Key { key: pressed, pressed: true, modifiers, .. }
+            if *pressed == key && matches(*modifiers))
+    })
+}
+
 /// Number of whole cells that fit in `width`, accounting for gaps.
 fn columns_for_width(width: f32, geom: CellGeom) -> usize {
     ((width + GAP) / geom.stride_x()).floor().max(0.0) as usize
@@ -2241,6 +2277,228 @@ mod tests {
             .collect();
         grid.apply_scan(Ok(entries));
         grid
+    }
+
+    #[test]
+    fn export_shortcut_survives_modifiers_released_in_the_same_frame() {
+        let (_dir, db) = db_for_tests();
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        let mut textures = Textures::new();
+        let ctx = egui::Context::default();
+        let mut exported = false;
+        let modifiers = egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..Default::default()
+        };
+        let raw = egui::RawInput {
+            events: vec![
+                egui::Event::Key {
+                    key: egui::Key::E,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                },
+                egui::Event::Key {
+                    key: egui::Key::E,
+                    physical_key: None,
+                    pressed: false,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        };
+        let mut full = ctx.run_ui(raw, |ui| {
+            exported |= matches!(grid.ui(ui, &db, &mut textures, false),
+                Some(Action::Export { files, .. }) if files.len() == 3);
+        });
+        full.textures_delta.clear();
+        assert!(exported, "a quick Ctrl+E must still queue Export");
+    }
+
+    #[test]
+    fn export_button_keeps_ctrl_selected_photos_in_every_file_mode() {
+        for mode in [ExportMode::All, ExportMode::RawOnly, ExportMode::JpegOnly] {
+            let (_dir, db) = db_for_tests();
+            let mut grid = grid_with(&[TestLabel::None; 4]);
+            grid.export_mode = mode;
+            for entry in &mut grid.entries {
+                entry.jpeg_rel_path = Some(entry.rel_path.with_extension("JPG"));
+            }
+            let ctx = egui::Context::default();
+            let mut textures = Textures::new();
+            let mut time = 0.0;
+            let mut frame = |grid: &mut GridView, mut events: Vec<egui::Event>, modifiers| {
+                time += 0.1;
+                events.insert(0, egui::Event::ModifiersChanged(modifiers));
+                let mut action = None;
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(1280.0, 800.0),
+                        )),
+                        time: Some(time),
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        if let Some(picked) = grid.ui(ui, &db, &mut textures, false) {
+                            action = Some(picked);
+                        }
+                    },
+                );
+                output.textures_delta.clear();
+                action
+            };
+            for _ in 0..3 {
+                frame(&mut grid, vec![], egui::Modifiers::NONE);
+            }
+            let ctrl = egui::Modifiers {
+                ctrl: true,
+                command: true,
+                ..Default::default()
+            };
+            let button = |pos, pressed, modifiers| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers,
+            };
+            for column in [0, 1] {
+                let pos = egui::pos2(
+                    40.0 + column as f32 * CellGeom::default().stride_x(),
+                    grid.settled_viewport_top + 40.0,
+                );
+                frame(
+                    &mut grid,
+                    vec![egui::Event::PointerMoved(pos), button(pos, true, ctrl)],
+                    ctrl,
+                );
+                frame(&mut grid, vec![button(pos, false, ctrl)], ctrl);
+            }
+            assert_eq!(grid.selection.len(), 2, "Ctrl-click must select two tiles");
+            let selected = grid.selection.clone();
+            let expected = grid.export_set(mode);
+            let rect = ctx
+                .memory(|memory| memory.area_rect(egui::Id::new("culltronic_export_control")))
+                .expect("export control is visible");
+            let chevron = egui::pos2(
+                rect.right() - 10.0 - EXPORT_CHEVRON_WIDTH / 2.0,
+                rect.center().y,
+            );
+            for pressed in [true, false] {
+                frame(
+                    &mut grid,
+                    vec![
+                        egui::Event::PointerMoved(chevron),
+                        button(chevron, pressed, egui::Modifiers::NONE),
+                    ],
+                    egui::Modifiers::NONE,
+                );
+            }
+            assert_eq!(
+                grid.selection, selected,
+                "scope menu must preserve selection"
+            );
+            let pos = egui::pos2(
+                rect.left() + 10.0 + EXPORT_BUTTON_WIDTH / 2.0,
+                rect.center().y,
+            );
+            frame(
+                &mut grid,
+                vec![
+                    egui::Event::PointerMoved(pos),
+                    button(pos, true, egui::Modifiers::NONE),
+                ],
+                egui::Modifiers::NONE,
+            );
+            let action = frame(
+                &mut grid,
+                vec![button(pos, false, egui::Modifiers::NONE)],
+                egui::Modifiers::NONE,
+            );
+            let Some(Action::Export { files, .. }) = action else {
+                panic!("clicking Export must produce an export action");
+            };
+            assert_eq!(files, expected, "Export must copy only the selected photos");
+            assert_eq!(grid.selection, selected, "Export must preserve selection");
+            let bare_sheet = egui::pos2(40.0, 500.0);
+            for pressed in [true, false] {
+                frame(
+                    &mut grid,
+                    vec![
+                        egui::Event::PointerMoved(bare_sheet),
+                        button(bare_sheet, pressed, egui::Modifiers::NONE),
+                    ],
+                    egui::Modifiers::NONE,
+                );
+            }
+            assert!(
+                grid.selection.is_empty(),
+                "bare sheet still clears selection"
+            );
+        }
+    }
+
+    #[test]
+    fn box_selection_survives_the_pointer_release() {
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        let ctx = egui::Context::default();
+        let geom = CellGeom::default();
+        let viewport = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+        let start = egui::pos2(geom.width * 2.0 + GAP + 2.0, geom.height + 2.0);
+        let end = egui::pos2(1.0, 1.0);
+        let button = |pos, pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        for events in [
+            vec![egui::Event::PointerMoved(start), button(start, true)],
+            vec![egui::Event::PointerMoved(end)],
+            vec![button(end, false)],
+        ] {
+            let mut full = ctx.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    grid.step_marquee(ui, Some(egui::Pos2::ZERO), 3, viewport, geom);
+                },
+            );
+            full.textures_delta.clear();
+        }
+        assert_eq!(
+            grid.selection,
+            [PhotoId(1), PhotoId(2)].into_iter().collect()
+        );
+        assert!(grid.marquee.is_none());
+    }
+
+    #[test]
+    fn dropped_pair_members_select_one_tile_and_reveal_it() {
+        let mut grid = grid_with(&[TestLabel::None; 3]);
+        grid.entries[2].jpeg_rel_path = Some("IMG_0003.JPG".into());
+        let ids = crate::drops::photo_ids(
+            &grid.entries,
+            &[
+                "IMG_0003.JPG".into(),
+                "IMG_0003.CR3".into(),
+                "IMG_0002.CR3".into(),
+            ],
+        )
+        .expect("pair maps to RAW tile");
+        grid.select_dropped(&ids);
+        assert_eq!(grid.selection.len(), 2);
+        assert_eq!(grid.cursor, Some(2));
+        assert_eq!(grid.scroll_target, Some(2));
+        assert_eq!(grid.anchor, Some(2));
+        assert!(crate::drops::photo_ids(&grid.entries, &["unpaired.JPG".into()]).is_err());
     }
 
     #[test]

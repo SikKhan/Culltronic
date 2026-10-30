@@ -1,0 +1,13 @@
+{
+  "egui-MIT.txt": "https://github.com/emilk/egui/blob/4c1f2fae95475a40e524884ebb298bcb1714b08e/LICENSE-MIT",
+  "accesskit-APACHE.txt": "https://github.com/AccessKit/accesskit/blob/a55d3e1a18bb9ef0e4bccc9083fb13c3e0ad8969/LICENSE-APACHE",
+  "accesskit-MIT.txt": "https://github.com/AccessKit/accesskit/blob/a55d3e1a18bb9ef0e4bccc9083fb13c3e0ad8969/LICENSE-MIT",
+  "accesskit-chromium.txt": "https://github.com/AccessKit/accesskit/blob/a55d3e1a18bb9ef0e4bccc9083fb13c3e0ad8969/LICENSE.chromium",
+  "alloc-stdlib-BSD.txt": "https://github.com/dropbox/rust-alloc-no-stdlib/blob/ae42d22078b98549e987d2f03d12df7b984fde47/LICENSE",
+  "clipboard-win-BSL.txt": "https://github.com/DoumanAsh/clipboard-win/blob/3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342/LICENSE",
+  "profiling-MIT.txt": "https://github.com/aclysma/profiling/blob/8271551172eb6fa4cba47369aedd93790c623df9/LICENSE-MIT",
+  "gl-generator-APACHE.txt": "https://github.com/rust-windowing/gl-rs/blob/ea503e8d5fb6d73c6030e6191ce738cd3bf3433e/LICENSE",
+  "khronos-api-APACHE.txt": "https://github.com/rust-windowing/gl-rs/blob/f150967b1c44ae888e6676f93f639ebc82771bdc/LICENSE",
+  "spirv-APACHE.txt": "https://github.com/gfx-rs/rspirv/blob/8afc3d0ac8e158128cd1410bb2e4b4c26ab11bb4/LICENSE",
+  "accesskit-AUTHORS.txt": "https://github.com/AccessKit/accesskit/blob/1bbcf100942bac96c2c3a4a91cb67b0b20201a24/AUTHORS"
+}

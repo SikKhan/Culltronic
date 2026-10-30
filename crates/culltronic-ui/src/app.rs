@@ -33,8 +33,15 @@ const FRAME_PULSE: Duration = Duration::from_millis(33);
 
 /// Events produced by background jobs and drained by the App every frame.
 enum Event {
+    /// Filesystem validation of a drop completed off the UI thread.
+    DropPrepared {
+        generation: u64,
+        result: Result<crate::drops::DropRequest, String>,
+    },
     /// A folder scan finished (successfully or not).
     ScanFinished {
+        /// Unique scan identity, including repeated opens of the same folder.
+        generation: u64,
         /// Root the job was launched for; used to drop stale results.
         root: PathBuf,
         /// Ordered index entries, or a user-facing error message.
@@ -87,6 +94,11 @@ enum Screen {
 
 /// Root of the UI state machine; owns views and pumps core events per frame.
 pub struct App {
+    package_verification_frames: Option<u8>,
+    scan_generation: u64,
+    preparing_drop: bool,
+    pending_drop: Option<Vec<PathBuf>>,
+    drop_note: Option<String>,
     db: Arc<Db>,
     screen: Screen,
     events_tx: crossbeam_channel::Sender<Event>,
@@ -133,6 +145,11 @@ impl App {
             .map(|(p, rx)| (Some(p), Some(rx)))
             .unwrap_or_else(|| (None, None));
         Self {
+            package_verification_frames: None,
+            scan_generation: 0,
+            preparing_drop: false,
+            pending_drop: None,
+            drop_note: None,
             db,
             screen: Screen::Home(HomeView),
             events_tx,
@@ -148,6 +165,11 @@ impl App {
         }
     }
 
+    /// Close after rendered UI frames, verifying renderer startup in packaged CI runs.
+    pub(crate) fn verify_package(&mut self) {
+        self.package_verification_frames = Some(3);
+    }
+
     /// Cancels any in-flight export job; used when the browsed folder is
     /// about to change so a superseded run stops touching disk.
     fn cancel_export(&mut self) {
@@ -160,27 +182,44 @@ impl App {
     /// placeholders appear without waiting (SPEC §5.1); any ingest still
     /// running for the previous folder is cancelled up front.
     pub(crate) fn open_folder(&mut self, root: PathBuf) {
+        self.preparing_drop = false;
+        self.pending_drop = None;
+        self.drop_note = None;
+        self.mount_folder(&root);
+        self.scan_folder(root);
+    }
+
+    fn mount_folder(&mut self, root: &Path) {
         tracing::info!(?root, "opening folder");
         if let Some(pipeline) = &self.pipeline {
             pipeline.cancel();
         }
         self.cancel_export();
         self.pending_export = None;
-        self.scanning = Some(root.clone());
         let auto_advance = widgets::load_auto_advance(&self.db);
         let export_mode = widgets::load_export_mode(&self.db);
         self.screen = Screen::Grid(Box::new(GridView::new(
-            root.clone(),
+            root.to_owned(),
             auto_advance,
             export_mode,
         )));
+    }
+
+    fn scan_folder(&mut self, root: PathBuf) {
+        self.scan_generation += 1;
+        let generation = self.scan_generation;
+        self.scanning = Some(root.clone());
         let db = Arc::clone(&self.db);
         let sender = self.events_tx.clone();
         // Scan is a cheap walk + tiny upserts (< 300 ms @ 10k per SPEC §8);
         // a plain thread suffices — extraction itself runs on the rayon pool.
         std::thread::spawn(move || {
             let result = scan_and_sync(&db, &root);
-            let _sent = sender.send(Event::ScanFinished { root, result });
+            let _sent = sender.send(Event::ScanFinished {
+                generation,
+                root,
+                result,
+            });
         });
     }
 
@@ -211,11 +250,46 @@ impl App {
     fn drain_events(&mut self) {
         while let Ok(event) = self.events_rx.try_recv() {
             match event {
-                Event::ScanFinished { root, result } => {
-                    if self.scanning.as_ref() != Some(&root) {
+                Event::DropPrepared { generation, result } => {
+                    if !self.preparing_drop || generation != self.scan_generation {
+                        continue;
+                    }
+                    self.preparing_drop = false;
+                    match result {
+                        Ok(request) => {
+                            self.pending_drop = Some(request.files);
+                            self.scan_folder(request.root);
+                        }
+                        Err(message) => self.drop_note = Some(message),
+                    }
+                }
+                Event::ScanFinished {
+                    generation,
+                    root,
+                    result,
+                } => {
+                    if self.scan_generation != generation || self.scanning.as_ref() != Some(&root) {
                         continue;
                     }
                     self.scanning = None;
+                    let mut dropped_ids = Vec::new();
+                    if let Some(files) = self.pending_drop.take() {
+                        let resolved = result
+                            .as_ref()
+                            .map_err(Clone::clone)
+                            .and_then(|entries| crate::drops::photo_ids(entries, &files));
+                        match resolved {
+                            Ok(ids) => {
+                                dropped_ids = ids;
+                                self.mount_folder(&root);
+                                self.drop_note = None;
+                            }
+                            Err(message) => {
+                                self.drop_note = Some(message);
+                                continue;
+                            }
+                        }
+                    }
                     match (&mut self.screen, result) {
                         (Screen::Grid(grid), outcome) => {
                             // Purge texture state from any other folder before the
@@ -226,6 +300,7 @@ impl App {
                                 self.textures.retain(&keep);
                             }
                             grid.apply_scan(outcome);
+                            grid.select_dropped(&dropped_ids);
                             self.start_ingest(&root);
                         }
                         (Screen::Home(_), _) => {}
@@ -239,7 +314,7 @@ impl App {
                     }
                 }
                 Event::ExportFinished { root, result } => {
-                    if !self.export_job.as_ref().is_some_and(|job| job.root == root) {
+                    if self.export_job.as_ref().is_none_or(|job| job.root != root) {
                         continue;
                     }
                     self.cancel_export();
@@ -316,6 +391,7 @@ impl App {
     /// idle screens cost zero wakeups.
     fn schedule_repaint(&self, ctx: &egui::Context) {
         let busy = self.scanning.is_some()
+            || self.preparing_drop
             || matches!(&self.screen, Screen::Grid(grid) if grid.is_ingesting() || grid.is_exporting())
             || self.textures.busy();
         if busy {
@@ -356,6 +432,8 @@ impl App {
             }
             Some(Action::BackToHome) => {
                 self.scanning = None;
+                self.preparing_drop = false;
+                self.pending_drop = None;
                 if let Some(pipeline) = &self.pipeline {
                     pipeline.cancel();
                 }
@@ -485,6 +563,62 @@ impl App {
     }
 }
 
+impl App {
+    /// Retire slow drop work while keeping the current folder and selection.
+    fn cancel_pending_drop(&mut self) {
+        self.scan_generation += 1;
+        self.preparing_drop = false;
+        self.pending_drop = None;
+        self.scanning = None;
+        self.drop_note = None;
+    }
+
+    /// Reject drops during modal/export work; never cancel a copy by accident.
+    fn pump_drops(&mut self, ctx: &egui::Context) {
+        let dropped = ctx.input_mut(|input| std::mem::take(&mut input.raw.dropped_files));
+        if dropped.is_empty() {
+            return;
+        }
+        if self.modals.any() || self.pending_export.is_some() || self.export_job.is_some() {
+            self.drop_note = Some(
+                "Finish or cancel the current dialog or export before dropping photos.".into(),
+            );
+            return;
+        }
+        if self.scanning.is_some() && self.pending_drop.is_none() {
+            self.drop_note = Some(
+                "Wait for the current folder to finish opening before dropping photos.".into(),
+            );
+            return;
+        }
+        let paths = dropped.iter().map(|file| file.path().to_owned()).collect();
+        // Metadata on an unavailable drive can block: do all drop I/O off-thread.
+        self.scan_generation += 1;
+        let generation = self.scan_generation;
+        self.preparing_drop = true;
+        self.pending_drop = None;
+        self.scanning = None;
+        self.drop_note = Some("Opening dropped photos…".into());
+        let sender = self.events_tx.clone();
+        std::thread::spawn(move || {
+            let result = crate::drops::resolve(paths);
+            let _sent = sender.send(Event::DropPrepared { generation, result });
+        });
+    }
+
+    fn draw_drop_feedback(&mut self, ctx: &egui::Context) {
+        if ctx.input(|input| !input.raw.hovered_files.is_empty()) {
+            let layer = egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("drop_hint"));
+            let painter = ctx.layer_painter(layer);
+            let rect = ctx.content_rect();
+            painter.rect_filled(rect, 0.0, egui::Color32::from_black_alpha(210));
+            painter.text(rect.center(), egui::Align2::CENTER_CENTER,
+                "Drop one folder or RAW photos from one folder\nCompanion JPEGs select their RAW+JPEG pair",
+                egui::FontId::proportional(22.0), egui::Color32::WHITE);
+        }
+    }
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
@@ -492,12 +626,30 @@ impl eframe::App for App {
         // paint them this same frame.
         self.textures.sync(&ctx);
         self.drain_events();
+        self.pump_drops(&ctx);
+        if let Some(note) = self.drop_note.clone() {
+            egui::Panel::top("drop_status").show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(note);
+                    if self.preparing_drop || self.pending_drop.is_some() {
+                        if ui.small_button("Cancel").clicked() {
+                            self.cancel_pending_drop();
+                        }
+                    } else if ui.small_button("Dismiss").clicked() {
+                        self.drop_note = None;
+                    }
+                });
+            });
+        }
         // Modal open/close intents are read before the views so a closing
         // keypress never falls through into the screen underneath; while
         // a modal or the export confirmation is up the views render but
         // stay input-suspended.
         self.modals.pump_input(&ctx);
-        let suspended = self.modals.any() || self.pending_export.is_some();
+        let suspended = self.modals.any()
+            || self.pending_export.is_some()
+            || self.pending_drop.is_some()
+            || self.preparing_drop;
 
         match &mut self.screen {
             Screen::Home(home) => {
@@ -505,7 +657,9 @@ impl eframe::App for App {
                 egui::CentralPanel::default().show(ui, |ui| {
                     action = home.ui(ui, &self.db);
                 });
-                self.run_action(action);
+                if !suspended {
+                    self.run_action(action);
+                }
             }
             Screen::Grid(grid) => {
                 let mut action = None;
@@ -522,9 +676,19 @@ impl eframe::App for App {
         // created this frame (SPEC §6 `?` overlay, About, export confirm).
         self.pump_export_confirm(&ctx);
         self.modals.draw(&ctx);
+        self.draw_drop_feedback(&ctx);
 
         self.pump_priority();
         self.schedule_repaint(&ctx);
+        if let Some(frames) = &mut self.package_verification_frames {
+            *frames -= 1;
+            if *frames == 0 {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                self.package_verification_frames = None;
+            } else {
+                ctx.request_repaint();
+            }
+        }
     }
 }
 
@@ -552,7 +716,34 @@ fn install_fonts(ctx: &egui::Context) {
         .entry(egui::FontFamily::Proportional)
         .or_default()
         .insert(0, "inter_regular".into());
+    #[cfg(windows)]
+    install_windows_font_fallbacks(&mut fonts);
     ctx.set_fonts(fonts);
+}
+
+/// Use installed fonts for non-Latin filenames without redistributing system fonts.
+#[cfg(windows)]
+fn install_windows_font_fallbacks(fonts: &mut egui::FontDefinitions) {
+    let Some(windows) = std::env::var_os("SystemRoot") else {
+        return;
+    };
+    let directory = PathBuf::from(windows).join("Fonts");
+    for name in [
+        "msyh.ttc",
+        "msjh.ttc",
+        "YuGothR.ttc",
+        "malgun.ttf",
+        "segoeui.ttf",
+    ] {
+        if let Ok(bytes) = std::fs::read(directory.join(name)) {
+            fonts
+                .font_data
+                .insert(name.into(), egui::FontData::from_owned(bytes).into());
+            for family in [egui::FontFamily::Proportional, egui::FontFamily::Monospace] {
+                fonts.families.entry(family).or_default().push(name.into());
+            }
+        }
+    }
 }
 
 fn install_theme(ctx: &egui::Context) {
@@ -584,4 +775,110 @@ fn install_theme(ctx: &egui::Context) {
         // Secondary text (hints, tile strips) uses the muted gray.
         v.weak_text_color = Some(MUTED);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(clippy::unwrap_used)]
+
+    use super::*;
+
+    fn test_app(db: Db) -> App {
+        let (events_tx, events_rx) = crossbeam_channel::unbounded();
+        App {
+            package_verification_frames: None,
+            scan_generation: 0,
+            preparing_drop: false,
+            pending_drop: None,
+            drop_note: None,
+            db: Arc::new(db),
+            screen: Screen::Home(HomeView),
+            events_tx,
+            events_rx,
+            scanning: None,
+            pipeline: None,
+            ingest_rx: None,
+            ingest_generation: 0,
+            textures: Textures::new(),
+            modals: Modals::default(),
+            export_job: None,
+            pending_export: None,
+        }
+    }
+
+    #[test]
+    fn stale_same_folder_scan_cannot_consume_the_latest_drop() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("photos");
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        app.scan_generation = 2;
+        app.scanning = Some(root.clone());
+        app.pending_drop = Some(Vec::new());
+        app.events_tx
+            .send(Event::ScanFinished {
+                generation: 1,
+                root: root.clone(),
+                result: Ok(Vec::new()),
+            })
+            .unwrap();
+        app.drain_events();
+        assert!(matches!(app.screen, Screen::Home(_)));
+        assert!(app.pending_drop.is_some());
+        app.events_tx
+            .send(Event::ScanFinished {
+                generation: 2,
+                root: root.clone(),
+                result: Ok(Vec::new()),
+            })
+            .unwrap();
+        app.drain_events();
+        assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&root)));
+        assert!(app.pending_drop.is_none());
+    }
+
+    #[test]
+    fn invalid_drop_or_scan_error_preserves_the_mounted_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        let original = dir.path().join("original");
+        let dropped = dir.path().join("dropped");
+        app.mount_folder(&original);
+        for result in [Ok(Vec::new()), Err("Access denied".into())] {
+            app.scanning = Some(dropped.clone());
+            app.pending_drop = Some(vec!["unpaired.JPG".into()]);
+            app.events_tx
+                .send(Event::ScanFinished {
+                    generation: 0,
+                    root: dropped.clone(),
+                    result,
+                })
+                .unwrap();
+            app.drain_events();
+            assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
+            assert!(app.drop_note.is_some());
+        }
+    }
+
+    #[test]
+    fn cancelled_drop_ignores_late_filesystem_validation() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = test_app(Db::open(&dir.path().join("index.db")).unwrap());
+        let original = dir.path().join("original");
+        app.mount_folder(&original);
+        app.preparing_drop = true;
+        app.cancel_pending_drop();
+        app.events_tx
+            .send(Event::DropPrepared {
+                generation: 0,
+                result: Ok(crate::drops::DropRequest {
+                    root: dir.path().join("late drop"),
+                    files: Vec::new(),
+                }),
+            })
+            .unwrap();
+        app.drain_events();
+        assert!(matches!(&app.screen, Screen::Grid(grid) if grid.is_browsing(&original)));
+        assert!(app.scanning.is_none());
+        assert!(!app.preparing_drop);
+    }
 }

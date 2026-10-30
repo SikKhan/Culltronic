@@ -1,6 +1,10 @@
 //! Culltronic — Photo Mechanic-style culling tool for RAW photographs.
 
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod app;
+mod drops;
+mod profile;
 mod tex;
 mod theme;
 mod views;
@@ -10,6 +14,18 @@ use std::sync::Arc;
 use eframe::egui;
 
 fn main() -> anyhow::Result<()> {
+    run().inspect_err(|error| {
+        tracing::error!(%error, "startup failed");
+        #[cfg(windows)]
+        rfd::MessageDialog::new()
+            .set_title("Culltronic could not start")
+            .set_description(format!("{error:#}"))
+            .set_level(rfd::MessageLevel::Error)
+            .show();
+    })
+}
+
+fn run() -> anyhow::Result<()> {
     init_tracing();
 
     let initial_folder = parse_initial_folder()?;
@@ -23,6 +39,7 @@ fn main() -> anyhow::Result<()> {
     // overridden anywhere — egui points track the platform DPI on X11 and
     // Wayland untouched.
     let options = eframe::NativeOptions {
+        persistence_path: profile::window_state_path()?,
         viewport: egui::ViewportBuilder::default()
             .with_title("Culltronic")
             .with_inner_size([1280.0, 800.0]),
@@ -33,6 +50,9 @@ fn main() -> anyhow::Result<()> {
         options,
         Box::new(move |cc| {
             let mut app = app::App::new(cc, Arc::new(db));
+            if std::env::args_os().any(|arg| arg == "--verify-package") {
+                app.verify_package();
+            }
             if let Some(folder) = initial_folder {
                 app.open_folder(folder);
             }
@@ -45,12 +65,15 @@ fn main() -> anyhow::Result<()> {
 /// `culltronic-ui [FOLDER]` — an optional positional folder opens straight into the
 /// contact sheet instead of the home screen.
 fn parse_initial_folder() -> anyhow::Result<Option<std::path::PathBuf>> {
-    let Some(arg) = std::env::args().nth(1) else {
+    let Some(arg) = std::env::args_os().nth(1) else {
         return Ok(None);
     };
     if arg == "-h" || arg == "--help" {
         println!("usage: culltronic-ui [FOLDER]");
         std::process::exit(0);
+    }
+    if arg == "--verify-package" {
+        return Ok(None);
     }
     let path = std::path::PathBuf::from(arg);
     if !path.is_dir() {
