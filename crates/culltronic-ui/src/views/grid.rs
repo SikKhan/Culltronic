@@ -614,14 +614,18 @@ impl GridView {
             }
         }
 
-        let tally = self.tally();
-        egui::Panel::top(egui::Id::new("culltronic_grid_top_bar")).show(ui, |ui| {
-            self.top_bar(ui, db, &tally, &mut action);
-        });
-        if self.show_filter_bar() {
-            egui::Panel::top(egui::Id::new("culltronic_filter_bar")).show(ui, |ui| {
-                self.filter_bar(ui, &tally);
+        // Folder controls belong to the contact sheet; the loupe uses
+        // the reclaimed space for the photo and provides its own Back.
+        if self.loupe.is_none() {
+            let tally = self.tally();
+            egui::Panel::top(egui::Id::new("culltronic_grid_top_bar")).show(ui, |ui| {
+                self.top_bar(ui, db, &tally, &mut action);
             });
+            if self.show_filter_bar() {
+                egui::Panel::top(egui::Id::new("culltronic_filter_bar")).show(ui, |ui| {
+                    self.filter_bar(ui, &tally);
+                });
+            }
         }
         egui::CentralPanel::default()
             .show(ui, |ui| self.body(ui, db, textures, columns, suspended));
