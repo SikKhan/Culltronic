@@ -840,7 +840,10 @@ fn draw_zoom_pill(ui: &mut egui::Ui, image_area: egui::Rect, percent: f32) -> Zo
     );
 
     let mut action = ZoomPill::None;
-    let mut strip = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+    // Match the padding included in `width` so the controls are centered
+    // inside the pill, with equal space before minus and after plus.
+    let content_rect = rect.shrink2(egui::vec2(padding_x, 0.0));
+    let mut strip = ui.new_child(egui::UiBuilder::new().max_rect(content_rect));
     strip.spacing_mut().item_spacing.x = gap;
     strip.horizontal(|ui| {
         // `layout_no_wrap` hands back shared galleys; zones paint a clone
