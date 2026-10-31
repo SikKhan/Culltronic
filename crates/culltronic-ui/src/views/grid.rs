@@ -614,14 +614,18 @@ impl GridView {
             }
         }
 
-        let tally = self.tally();
-        egui::Panel::top(egui::Id::new("culltronic_grid_top_bar")).show(ui, |ui| {
-            self.top_bar(ui, db, &tally, &mut action);
-        });
-        if self.show_filter_bar() {
-            egui::Panel::top(egui::Id::new("culltronic_filter_bar")).show(ui, |ui| {
-                self.filter_bar(ui, &tally);
+        // Folder controls belong to the contact sheet; the loupe uses
+        // the reclaimed space for the photo and provides its own Back.
+        if self.loupe.is_none() {
+            let tally = self.tally();
+            egui::Panel::top(egui::Id::new("culltronic_grid_top_bar")).show(ui, |ui| {
+                self.top_bar(ui, db, &tally, &mut action);
             });
+            if self.show_filter_bar() {
+                egui::Panel::top(egui::Id::new("culltronic_filter_bar")).show(ui, |ui| {
+                    self.filter_bar(ui, &tally);
+                });
+            }
         }
         egui::CentralPanel::default()
             .show(ui, |ui| self.body(ui, db, textures, columns, suspended));
@@ -1076,21 +1080,37 @@ impl GridView {
                             ui.spacing_mut().item_spacing.x = 0.0;
                             let chevron_response = ui.add_enabled(
                                 !exporting,
-                                egui::Button::new(
-                                    egui::RichText::new("▾").size(13.0).color(theme::BG),
-                                )
-                                .min_size(egui::vec2(EXPORT_CHEVRON_WIDTH, EXPORT_BUTTON_HEIGHT))
-                                .fill(theme::ACCENT)
-                                .corner_radius(
-                                    egui::CornerRadius {
+                                egui::Button::new("")
+                                    .min_size(egui::vec2(
+                                        EXPORT_CHEVRON_WIDTH,
+                                        EXPORT_BUTTON_HEIGHT,
+                                    ))
+                                    .fill(theme::ACCENT)
+                                    .corner_radius(egui::CornerRadius {
                                         nw: 0,
                                         ne: 6,
                                         sw: 0,
                                         se: 6,
-                                    },
-                                ),
+                                    }),
                             );
                             let chevron_rect = chevron_response.rect;
+                            // Paint the arrow directly: the bundled font does
+                            // not provide the down-triangle glyph on all platforms.
+                            let center = chevron_rect.center();
+                            let arrow_color = if exporting {
+                                theme::BG.gamma_multiply(ui.visuals().disabled_alpha())
+                            } else {
+                                theme::BG
+                            };
+                            ui.painter().add(egui::Shape::convex_polygon(
+                                vec![
+                                    center + egui::vec2(-4.0, -2.0),
+                                    center + egui::vec2(4.0, -2.0),
+                                    center + egui::vec2(0.0, 2.0),
+                                ],
+                                arrow_color,
+                                egui::Stroke::NONE,
+                            ));
                             let chevron_hint =
                                 "Choose what export copies — all files, RAW only, or JPEG only";
                             // Opens upward because the pill hugs the bottom

@@ -4,6 +4,7 @@
 
 mod app;
 mod drops;
+mod graphics;
 mod profile;
 mod tex;
 mod theme;
@@ -29,7 +30,7 @@ fn run() -> anyhow::Result<()> {
     init_tracing();
 
     let initial_folder = parse_initial_folder()?;
-    let db = open_index_db()?;
+    let db = Arc::new(open_index_db()?);
 
     // Window size/position persist across restarts via eframe's own
     // `persistence` feature (enabled in Cargo.toml): it saves the rect on
@@ -45,20 +46,35 @@ fn run() -> anyhow::Result<()> {
             .with_inner_size([1280.0, 800.0]),
         ..Default::default()
     };
-    eframe::run_native(
-        "Culltronic",
-        options,
-        Box::new(move |cc| {
-            let mut app = app::App::new(cc, Arc::new(db));
-            if std::env::args_os().any(|arg| arg == "--verify-package") {
-                app.verify_package();
-            }
-            if let Some(folder) = initial_folder {
-                app.open_folder(folder);
-            }
-            Ok(Box::new(app))
-        }),
-    )?;
+    graphics::run_with_fallback(|wgpu_options| {
+        let mut app_started = false;
+        let db = Arc::clone(&db);
+        let initial_folder = initial_folder.clone();
+        let result = eframe::run_native(
+            "Culltronic",
+            eframe::NativeOptions {
+                wgpu_options,
+                run_and_return: true,
+                ..options.clone()
+            },
+            Box::new(|cc| {
+                app_started = true;
+                if let Some(render_state) = &cc.wgpu_render_state {
+                    let adapter = render_state.adapter.get_info();
+                    tracing::info!(name = %adapter.name, backend = ?adapter.backend, "graphics adapter");
+                }
+                let mut app = app::App::new(cc, db);
+                if std::env::args_os().any(|arg| arg == "--verify-package") {
+                    app.verify_package();
+                }
+                if let Some(folder) = initial_folder {
+                    app.open_folder(folder);
+                }
+                Ok(Box::new(app))
+            }),
+        );
+        (result, app_started)
+    })?;
     Ok(())
 }
 

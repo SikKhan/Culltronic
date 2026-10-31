@@ -441,6 +441,11 @@ impl App {
                 self.screen = Screen::Home(HomeView);
             }
             Some(Action::ShowAbout) => self.modals.open_about(),
+            Some(Action::ClearRecentFolders) => {
+                if let Err(error) = self.db.clear_recent_roots() {
+                    self.drop_note = Some(format!("Could not clear folder history: {error}"));
+                }
+            }
         }
     }
 

@@ -17,6 +17,8 @@ use std::path::PathBuf;
 pub enum Action {
     /// Show the native folder picker.
     PickFolder,
+    /// Clear the recent folder list while keeping indexed photos and labels.
+    ClearRecentFolders,
     /// Scan the folder at this path and browse it in the grid.
     OpenFolder(PathBuf),
     /// Copy these original files into a user-picked destination folder;

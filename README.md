@@ -48,7 +48,14 @@ Windows support is being validated in [issue #2](https://github.com/SikKhan/Cull
 The Windows CI artifact contains a versioned x64 ZIP and SHA-256 checksum.
 Extract the ZIP and run `culltronic-ui.exe`; no installer or administrator access
 is needed. Builds use the static MSVC runtime and bundled SQLite. Graphics use
-the Windows graphics stack and installed GPU drivers.
+DirectX 12 and the installed GPU drivers. If graphics initialization fails,
+Windows automatically retries with Vulkan, then OpenGL. DirectX 12 stays first
+to avoid a Vulkan resize crash on affected Intel Arc drivers. Fallback only
+applies during startup; it cannot recover a native driver crash after launch.
+`WGPU_BACKEND` can explicitly override the
+backend for troubleshooting (for example, `dx12` or `vulkan`).
+An explicit override disables automatic fallback. Linux and macOS retain
+eframe's existing backend selection.
 
 Settings, labels, rotations, recents, the index and cached JPEGs stay under
 `%LOCALAPPDATA%\cullr`, independently of the extracted application folder.

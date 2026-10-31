@@ -522,6 +522,14 @@ impl Db {
         })
     }
 
+    /// Clears folder history without changing indexed photos, labels or previews.
+    pub fn clear_recent_roots(&self) -> Result<(), DbError> {
+        self.with_conn(|conn| {
+            conn.execute("DELETE FROM roots", [])?;
+            Ok(())
+        })
+    }
+
     /// Stores a settings value, replacing any previous one.
     pub fn kv_set(&self, key: &str, value: &str) -> Result<(), DbError> {
         self.with_conn(|conn| {
@@ -1724,6 +1732,28 @@ mod tests {
         assert_eq!(
             recent,
             vec![PathBuf::from("/photos/new"), PathBuf::from("/photos/old")]
+        );
+    }
+
+    #[test]
+    fn clearing_history_preserves_indexed_photos_and_labels() {
+        let fx = open_db();
+        fx.db.touch_root(Path::new("/photos"), 100).expect("touch");
+        fx.db.with_conn(|conn| {
+            conn.execute("INSERT INTO photos (root, rel_path, mtime, size, label) VALUES ('/photos', 'a.CR3', 1, 10, 3)", [])?;
+            Ok(())
+        }).expect("seed labeled photo");
+
+        fx.db.clear_recent_roots().expect("clear history");
+        assert!(fx.db.recent_roots(10).expect("recents").is_empty());
+        assert_eq!(
+            scalar(&fx.db, "SELECT count(*) FROM photos WHERE label = 3"),
+            1
+        );
+        fx.db.touch_root(Path::new("/photos"), 200).expect("reopen");
+        assert_eq!(
+            fx.db.recent_roots(10).expect("recents"),
+            vec![PathBuf::from("/photos")]
         );
     }
 

@@ -59,6 +59,8 @@ const SCRUB_GAIN: f32 = 0.01;
 const MARQUEE_MIN: f32 = 8.0;
 /// Height of the bottom EXIF bar.
 const BAR_HEIGHT: f32 = 30.0;
+/// Reserved space above the photo for identity and navigation.
+const HEADER_HEIGHT: f32 = 32.0;
 /// Height of the zoom indicator pill.
 const PILL_HEIGHT: f32 = 24.0;
 /// How many positions on each side of the current photo prefetch their
@@ -223,9 +225,13 @@ impl LoupeView {
         let (area, response) =
             ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
         // The lightbox gives the photo the whole screen; otherwise the
-        // bottom strip stays reserved for the EXIF bar.
+        // header and footer stay outside the photo viewport.
         let bar_height = if self.lightbox { 0.0 } else { BAR_HEIGHT };
-        let image_area = egui::Rect::from_min_max(area.min, area.max - egui::vec2(0.0, bar_height));
+        let header_height = if self.lightbox { 0.0 } else { HEADER_HEIGHT };
+        let image_area = egui::Rect::from_min_max(
+            area.min + egui::vec2(0.0, header_height),
+            area.max - egui::vec2(0.0, bar_height),
+        );
         let aspect = image_aspect(entry);
         let fitted_size = super::grid::fit_rect(image_area, aspect).size();
         // 100% is pixel parity of the embedded preview; the ceiling
@@ -412,9 +418,37 @@ impl LoupeView {
         }
         // Chromeless lightbox: the photo alone, nothing else on screen.
         if !self.lightbox {
+            let header_area =
+                egui::Rect::from_min_size(area.min, egui::vec2(area.width(), HEADER_HEIGHT));
+            ui.painter().rect_filled(header_area, 0.0, theme::PANEL);
+            draw_photo_identity(ui, header_area, detail.as_ref());
+            let back_rect = egui::Rect::from_min_size(
+                header_area.min + egui::vec2(6.0, 2.0),
+                egui::vec2(64.0, PILL_HEIGHT),
+            );
+            let mut back_ui = ui.new_child(egui::UiBuilder::new().max_rect(back_rect));
+            let back_response = back_ui
+                .add_enabled(
+                    !suspended,
+                    egui::Button::new("")
+                        .fill(egui::Color32::from_black_alpha(190))
+                        .corner_radius(PILL_HEIGHT / 2.0)
+                        .min_size(back_rect.size()),
+                )
+                .on_hover_text("Back to contact sheet (Esc)");
+            back_ui.painter().text(
+                back_response.rect.center(),
+                egui::Align2::CENTER_CENTER,
+                "‹ Back",
+                egui::FontId::proportional(12.0),
+                theme::TEXT,
+            );
+            if back_response.clicked() {
+                return Outcome::Close;
+            }
             draw_position_overlay(
                 ui.painter(),
-                image_area,
+                header_area,
                 detail.as_ref(),
                 self.index + 1,
                 order.len(),
@@ -840,7 +874,10 @@ fn draw_zoom_pill(ui: &mut egui::Ui, image_area: egui::Rect, percent: f32) -> Zo
     );
 
     let mut action = ZoomPill::None;
-    let mut strip = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+    // Match the padding included in `width` so the controls are centered
+    // inside the pill, with equal space before minus and after plus.
+    let content_rect = rect.shrink2(egui::vec2(padding_x, 0.0));
+    let mut strip = ui.new_child(egui::UiBuilder::new().max_rect(content_rect));
     strip.spacing_mut().item_spacing.x = gap;
     strip.horizontal(|ui| {
         // `layout_no_wrap` hands back shared galleys; zones paint a clone
@@ -895,6 +932,44 @@ fn draw_zoom_pill(ui: &mut egui::Ui, image_area: egui::Rect, percent: f32) -> Zo
     action
 }
 
+/// Camera and lens sit beside Back in a single reserved header row.
+fn draw_photo_identity(ui: &mut egui::Ui, area: egui::Rect, detail: Option<&PhotoDetail>) {
+    let rect = egui::Rect::from_min_max(
+        area.min + egui::vec2(80.0, 2.0),
+        egui::pos2(
+            (area.right() - 150.0).max(area.left() + 80.0),
+            area.bottom() - 2.0,
+        ),
+    );
+    let mut header = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+    header.horizontal_centered(|ui| {
+        if let Some(detail) = detail {
+            if let Some(camera) = detail.camera.as_deref() {
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(camera)
+                            .strong()
+                            .size(12.0)
+                            .color(theme::TEXT),
+                    )
+                    .truncate(),
+                )
+                .on_hover_text(camera);
+            }
+            if let Some(lens) = detail.lens.as_deref() {
+                if detail.camera.is_some() {
+                    ui.separator();
+                }
+                ui.add(
+                    egui::Label::new(egui::RichText::new(lens).size(12.0).color(theme::MUTED))
+                        .truncate(),
+                )
+                .on_hover_text(lens);
+            }
+        }
+    });
+}
+
 /// Top-right pill: color-label dot plus position counter `n / total`
 /// with thin-space thousands grouping.
 fn draw_position_overlay(
@@ -916,7 +991,7 @@ fn draw_position_overlay(
     let height = 24.0;
     let width = padding_x + dot_diameter + gap + galley.size().x + padding_x;
     let rect = egui::Rect::from_min_size(
-        egui::pos2(area.right() - width - 12.0, area.top() + 12.0),
+        egui::pos2(area.right() - width - 12.0, area.center().y - height / 2.0),
         egui::vec2(width, height),
     );
     painter.rect_filled(rect, height / 2.0, egui::Color32::from_black_alpha(150));
@@ -991,26 +1066,85 @@ fn draw_exif_bar(
         },
     );
 
-    // Summary line gets whatever width the right-hand controls leave it.
-    let line = detail.map_or_else(|| file_name(entry), |detail| exif_line(detail, entry));
-    let text_clip = egui::Rect::from_min_max(bar.min, egui::pos2(swatch_left - 40.0, bar.max.y));
-    ui.painter().with_clip_rect(text_clip).text(
-        egui::pos2(bar.left() + 12.0, bar.center().y),
+    // Keep filename, exposure and capture date in distinct regions.
+    let content = egui::Rect::from_min_max(
+        bar.min + egui::vec2(12.0, 0.0),
+        egui::pos2((swatch_left - 40.0).max(bar.left() + 12.0), bar.bottom()),
+    );
+    let date = detail.and_then(|d| d.taken_at.as_deref());
+    let date_width = date.map_or(0.0, |text| {
+        (ui.painter()
+            .layout_no_wrap(
+                text.to_owned(),
+                egui::FontId::proportional(12.0),
+                theme::MUTED,
+            )
+            .size()
+            .x
+            + 16.0)
+            .min(content.width() * 0.3)
+    });
+    let date_left = content.right() - date_width;
+    let name_half_width = (bar.width() * 0.15).min((date_left - bar.center().x - 12.0).max(0.0));
+    let name_rect = egui::Rect::from_center_size(
+        egui::pos2(bar.center().x, bar.center().y),
+        egui::vec2(name_half_width * 2.0, bar.height()),
+    );
+    let settings_rect = egui::Rect::from_min_max(
+        content.min,
+        egui::pos2(
+            (name_rect.left() - 12.0).max(content.left()),
+            content.bottom(),
+        ),
+    );
+    let line = detail.map_or_else(String::new, |detail| exif_line(detail, entry));
+    ui.painter().with_clip_rect(settings_rect).text(
+        settings_rect.left_center(),
         egui::Align2::LEFT_CENTER,
-        line,
+        &line,
         egui::FontId::proportional(12.0),
         theme::MUTED,
     );
+    let name = file_name(entry);
+    ui.painter().with_clip_rect(name_rect).text(
+        name_rect.center(),
+        egui::Align2::CENTER_CENTER,
+        &name,
+        egui::FontId::proportional(12.0),
+        theme::TEXT,
+    );
+    ui.interact(
+        name_rect,
+        ui.id().with("footer_filename"),
+        egui::Sense::hover(),
+    )
+    .on_hover_text(&name);
+    if let Some(date) = date {
+        let date_rect = egui::Rect::from_min_max(egui::pos2(date_left, content.top()), content.max);
+        ui.painter().line_segment(
+            [
+                date_rect.left_top() + egui::vec2(0.0, 4.0),
+                date_rect.left_bottom() - egui::vec2(0.0, 4.0),
+            ],
+            egui::Stroke::new(1.0, theme::MUTED.gamma_multiply(0.3)),
+        );
+        ui.painter().with_clip_rect(date_rect).text(
+            date_rect.right_center(),
+            egui::Align2::RIGHT_CENTER,
+            date,
+            egui::FontId::proportional(12.0),
+            theme::MUTED,
+        );
+        ui.interact(date_rect, ui.id().with("footer_date"), egui::Sense::hover())
+            .on_hover_text(date);
+    }
     picked
 }
 
-/// Builds the EXIF summary line; absent fields are skipped rather than
-/// shown as gaps, and an all-empty record degrades to the file name.
-fn exif_line(detail: &PhotoDetail, entry: &PhotoEntry) -> String {
+/// Builds the exposure summary, separate from filename and capture date.
+fn exif_line(detail: &PhotoDetail, _entry: &PhotoEntry) -> String {
     let mut parts: Vec<String> = Vec::new();
     for text in [
-        detail.camera.clone(),
-        detail.lens.clone(),
         detail
             .aperture
             .map(|value| format!("f/{}", trim_number(value))),
@@ -1019,7 +1153,6 @@ fn exif_line(detail: &PhotoDetail, entry: &PhotoEntry) -> String {
         detail
             .focal_mm
             .map(|value| format!("{}mm", trim_number(value))),
-        detail.taken_at.clone(),
     ]
     .into_iter()
     .flatten()
@@ -1027,7 +1160,7 @@ fn exif_line(detail: &PhotoDetail, entry: &PhotoEntry) -> String {
         parts.push(text);
     }
     if parts.is_empty() {
-        file_name(entry)
+        String::new()
     } else {
         parts.join(" · ")
     }
@@ -1374,10 +1507,7 @@ mod tests {
             d.iso = Some(400);
         });
 
-        assert_eq!(
-            exif_line(&detail, &entry()),
-            "Canon EOS R6 · 1/250 s · ISO 400"
-        );
+        assert_eq!(exif_line(&detail, &entry()), "1/250 s · ISO 400");
     }
 
     #[test]
@@ -1401,9 +1531,9 @@ mod tests {
     }
 
     #[test]
-    fn exif_line_should_fall_back_to_the_file_name_when_empty() {
+    fn exif_line_should_be_empty_when_settings_are_missing() {
         let detail = detail(|_| {});
 
-        assert_eq!(exif_line(&detail, &entry()), "IMG_0001.CR3");
+        assert_eq!(exif_line(&detail, &entry()), "");
     }
 }
