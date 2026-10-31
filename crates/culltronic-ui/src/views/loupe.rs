@@ -427,17 +427,23 @@ impl LoupeView {
                 egui::vec2(64.0, PILL_HEIGHT),
             );
             let mut back_ui = ui.new_child(egui::UiBuilder::new().max_rect(back_rect));
-            if back_ui
+            let back_response = back_ui
                 .add_enabled(
                     !suspended,
-                    egui::Button::new("‹ Back")
+                    egui::Button::new("")
                         .fill(egui::Color32::from_black_alpha(190))
                         .corner_radius(PILL_HEIGHT / 2.0)
                         .min_size(back_rect.size()),
                 )
-                .on_hover_text("Back to contact sheet (Esc)")
-                .clicked()
-            {
+                .on_hover_text("Back to contact sheet (Esc)");
+            back_ui.painter().text(
+                back_response.rect.center(),
+                egui::Align2::CENTER_CENTER,
+                "‹ Back",
+                egui::FontId::proportional(12.0),
+                theme::TEXT,
+            );
+            if back_response.clicked() {
                 return Outcome::Close;
             }
             draw_position_overlay(
