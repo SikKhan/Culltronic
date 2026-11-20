@@ -550,10 +550,7 @@ impl App {
                     {
                         confirmed = true;
                     }
-                    if ui.button("Cancel").clicked() {
-                        return true;
-                    }
-                    false
+                    ui.button("Cancel").clicked()
                 })
                 .inner
             });
