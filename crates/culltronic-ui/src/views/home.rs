@@ -313,7 +313,8 @@ fn about_button(ui: &mut egui::Ui) -> egui::Response {
     let center = pos2(rect.left() + 7.0, rect.center().y);
     ui.painter()
         .circle_stroke(center, 5.5, Stroke::new(1.0, color));
-    ui.painter().circle_filled(center + vec2(0.0, -2.3), 0.8, color);
+    ui.painter()
+        .circle_filled(center + vec2(0.0, -2.3), 0.8, color);
     ui.painter().line_segment(
         [center + vec2(0.0, -0.3), center + vec2(0.0, 3.0)],
         Stroke::new(1.2, color),
