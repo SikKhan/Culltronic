@@ -5,6 +5,8 @@
 mod app;
 mod drops;
 mod graphics;
+#[cfg(target_os = "macos")]
+mod macos;
 mod profile;
 mod tex;
 mod theme;
@@ -39,11 +41,17 @@ fn run() -> anyhow::Result<()> {
     // values below are only the first-launch defaults. No scale-factor is
     // overridden anywhere — egui points track the platform DPI on X11 and
     // Wayland untouched.
+    let viewport = egui::ViewportBuilder::default()
+        .with_title("Culltronic")
+        .with_inner_size([1280.0, 800.0]);
+    #[cfg(target_os = "macos")]
+    let viewport = viewport
+        .with_fullsize_content_view(true)
+        .with_titlebar_shown(false)
+        .with_title_shown(false);
     let options = eframe::NativeOptions {
         persistence_path: profile::window_state_path()?,
-        viewport: egui::ViewportBuilder::default()
-            .with_title("Culltronic")
-            .with_inner_size([1280.0, 800.0]),
+        viewport,
         ..Default::default()
     };
     graphics::run_with_fallback(|wgpu_options| {

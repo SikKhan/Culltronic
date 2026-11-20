@@ -903,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "culltronic-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "crossbeam-channel",
  "dirs",
@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "culltronic-ui"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -928,6 +928,8 @@ dependencies = [
  "dirs",
  "eframe",
  "image",
+ "objc2-app-kit 0.3.2",
+ "raw-window-handle",
  "rfd",
  "tempfile",
  "tracing",

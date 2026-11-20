@@ -6,7 +6,7 @@ use culltronic_core::Db;
 use eframe::egui::{self, Align2, Color32, FontId, Stroke, pos2, vec2};
 use std::path::Path;
 
-const BACKGROUND: Color32 = Color32::from_rgb(17, 18, 20);
+pub(crate) const BACKGROUND: Color32 = Color32::from_rgb(17, 18, 20);
 const CARD: Color32 = Color32::from_rgb(26, 27, 30);
 const BORDER: Color32 = Color32::from_rgb(38, 39, 43);
 const AMBER: Color32 = Color32::from_rgb(245, 166, 13);
@@ -64,18 +64,21 @@ impl HomeView {
             egui::Rect::from_min_max(pos2(bounds.left(), bounds.bottom() - 38.0), bounds.max);
         #[cfg(target_os = "macos")]
         {
-            let footer_content = footer.shrink2(vec2(0.0, 9.0));
+            let footer_content = egui::Rect::from_center_size(
+                pos2(footer.left() + 20.0, footer.center().y),
+                vec2(24.0, 24.0),
+            );
             let mut footer_ui = ui.new_child(egui::UiBuilder::new().max_rect(footer_content));
-            footer_ui.horizontal_centered(|ui| {
-                if about_button(ui).clicked() {
-                    action = Some(Action::ShowAbout);
-                }
-                ui.label(
-                    egui::RichText::new(concat!("v", env!("CARGO_PKG_VERSION")))
-                        .small()
-                        .color(theme::MUTED),
-                );
-            });
+            if about_button(&mut footer_ui).clicked() {
+                action = Some(Action::ShowAbout);
+            }
+            ui.painter().text(
+                pos2(footer.right() - 12.0, footer.center().y),
+                Align2::RIGHT_CENTER,
+                concat!("v", env!("CARGO_PKG_VERSION")),
+                egui::TextStyle::Small.resolve(ui.style()),
+                theme::MUTED,
+            );
         }
         let mut hints = egui::text::LayoutJob::default();
         hints.wrap.max_width = footer.width();
@@ -113,10 +116,7 @@ impl HomeView {
         }
         let hints = ui.painter().layout_job(hints);
         #[cfg(target_os = "macos")]
-        let hints_area = egui::Rect::from_min_max(
-            pos2((footer.left() + 150.0).min(footer.right()), footer.top()),
-            footer.max,
-        );
+        let hints_area = footer.shrink2(vec2(80.0_f32.min(footer.width() / 2.0), 0.0));
         #[cfg(not(target_os = "macos"))]
         let hints_area = footer;
         if hints.size().x <= hints_area.width() {
@@ -298,19 +298,25 @@ impl HomeView {
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 fn about_button(ui: &mut egui::Ui) -> egui::Response {
+    #[cfg(target_os = "windows")]
     let font = egui::TextStyle::Button.resolve(ui.style());
+    #[cfg(target_os = "windows")]
     let text = ui
         .painter()
         .layout_no_wrap("About".to_owned(), font, ui.visuals().text_color());
-    let (rect, response) = ui.allocate_exact_size(
-        vec2(16.0 + text.size().x + 8.0, text.size().y.max(20.0)),
-        egui::Sense::click(),
-    );
+    #[cfg(target_os = "windows")]
+    let size = vec2(16.0 + text.size().x + 8.0, text.size().y.max(20.0));
+    #[cfg(target_os = "macos")]
+    let size = vec2(24.0, 24.0);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "About")
     });
     let color = ui.style().interact(&response).fg_stroke.color;
+    #[cfg(target_os = "windows")]
     let center = pos2(rect.left() + 7.0, rect.center().y);
+    #[cfg(target_os = "macos")]
+    let center = rect.center();
     ui.painter()
         .circle_stroke(center, 5.5, Stroke::new(1.0, color));
     ui.painter()
@@ -319,11 +325,14 @@ fn about_button(ui: &mut egui::Ui) -> egui::Response {
         [center + vec2(0.0, -0.3), center + vec2(0.0, 3.0)],
         Stroke::new(1.2, color),
     );
+    #[cfg(target_os = "windows")]
     ui.painter().galley(
         pos2(rect.left() + 20.0, rect.center().y - text.size().y * 0.5),
         text,
         color,
     );
+    #[cfg(target_os = "macos")]
+    let response = response.on_hover_text("About Culltronic");
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 

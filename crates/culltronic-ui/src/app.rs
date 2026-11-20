@@ -622,8 +622,24 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        #[cfg(not(target_os = "macos"))]
+        let _ = frame;
+        #[cfg(target_os = "macos")]
+        {
+            let background = match &self.screen {
+                Screen::Home(_) => crate::views::home::BACKGROUND,
+                Screen::Grid(_) => crate::theme::PANEL,
+            };
+            ui.painter().rect_filled(ui.max_rect(), 0.0, background);
+            if let Some(inset) = crate::macos::top_content_inset(frame, ctx.zoom_factor()) {
+                egui::Panel::top("macos_titlebar_inset")
+                    .exact_size(inset)
+                    .frame(egui::Frame::new())
+                    .show(ui, |_| {});
+            }
+        }
         // Upload freshly decoded thumbnails before drawing so cells can
         // paint them this same frame.
         self.textures.sync(&ctx);
@@ -656,7 +672,10 @@ impl eframe::App for App {
         match &mut self.screen {
             Screen::Home(home) => {
                 let mut action = None;
-                egui::CentralPanel::default().show(ui, |ui| {
+                let panel = egui::CentralPanel::default();
+                #[cfg(target_os = "macos")]
+                let panel = panel.frame(egui::Frame::central_panel(ui.style()).inner_margin(0));
+                panel.show(ui, |ui| {
                     action = home.ui(ui, &self.db);
                 });
                 if !suspended {
@@ -665,7 +684,10 @@ impl eframe::App for App {
             }
             Screen::Grid(grid) => {
                 let mut action = None;
-                egui::CentralPanel::default().show(ui, |ui| {
+                let panel = egui::CentralPanel::default();
+                #[cfg(target_os = "macos")]
+                let panel = panel.frame(egui::Frame::central_panel(ui.style()).inner_margin(0));
+                panel.show(ui, |ui| {
                     action = grid.ui(ui, &self.db, &mut self.textures, suspended);
                 });
                 if !suspended {
