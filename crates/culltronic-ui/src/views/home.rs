@@ -30,6 +30,7 @@ impl HomeView {
                 );
             }
         }
+        #[cfg(not(target_os = "macos"))]
         ui.horizontal(|ui| {
             let (rect, _) = ui.allocate_exact_size(vec2(20.0, 24.0), egui::Sense::hover());
             aperture(ui.painter(), rect.center(), 7.0);
@@ -44,11 +45,16 @@ impl HomeView {
                     .color(theme::MUTED),
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.add(egui::Button::new("ⓘ  About").frame(false)).clicked() {
+                #[cfg(target_os = "windows")]
+                let clicked = about_button(ui).clicked();
+                #[cfg(not(target_os = "windows"))]
+                let clicked = ui.add(egui::Button::new("ⓘ  About").frame(false)).clicked();
+                if clicked {
                     action = Some(Action::ShowAbout);
                 }
             });
         });
+        #[cfg(not(target_os = "macos"))]
         ui.separator();
         let recents = db.recent_roots(10).unwrap_or_else(|error| {
             tracing::warn!(%error, "cannot load recent folders");
@@ -56,6 +62,21 @@ impl HomeView {
         });
         let footer =
             egui::Rect::from_min_max(pos2(bounds.left(), bounds.bottom() - 38.0), bounds.max);
+        #[cfg(target_os = "macos")]
+        {
+            let footer_content = footer.shrink2(vec2(0.0, 9.0));
+            let mut footer_ui = ui.new_child(egui::UiBuilder::new().max_rect(footer_content));
+            footer_ui.horizontal_centered(|ui| {
+                if about_button(ui).clicked() {
+                    action = Some(Action::ShowAbout);
+                }
+                ui.label(
+                    egui::RichText::new(concat!("v", env!("CARGO_PKG_VERSION")))
+                        .small()
+                        .color(theme::MUTED),
+                );
+            });
+        }
         let mut hints = egui::text::LayoutJob::default();
         hints.wrap.max_width = footer.width();
         for (index, (key, label)) in [
@@ -91,8 +112,20 @@ impl HomeView {
             );
         }
         let hints = ui.painter().layout_job(hints);
-        ui.painter()
-            .galley(footer.center() - hints.size() * 0.5, hints, theme::MUTED);
+        #[cfg(target_os = "macos")]
+        let hints_area = egui::Rect::from_min_max(
+            pos2((footer.left() + 150.0).min(footer.right()), footer.top()),
+            footer.max,
+        );
+        #[cfg(not(target_os = "macos"))]
+        let hints_area = footer;
+        if hints.size().x <= hints_area.width() {
+            ui.painter().galley(
+                hints_area.center() - hints.size() * 0.5,
+                hints,
+                theme::MUTED,
+            );
+        }
         egui::ScrollArea::vertical()
             .max_height((footer.top() - ui.cursor().top() - 12.0).max(0.0))
             .auto_shrink([false, false])
@@ -261,6 +294,36 @@ impl HomeView {
         }
         action
     }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn about_button(ui: &mut egui::Ui) -> egui::Response {
+    let font = egui::TextStyle::Button.resolve(ui.style());
+    let text = ui
+        .painter()
+        .layout_no_wrap("About".to_owned(), font, ui.visuals().text_color());
+    let (rect, response) = ui.allocate_exact_size(
+        vec2(16.0 + text.size().x + 8.0, text.size().y.max(20.0)),
+        egui::Sense::click(),
+    );
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), "About")
+    });
+    let color = ui.style().interact(&response).fg_stroke.color;
+    let center = pos2(rect.left() + 7.0, rect.center().y);
+    ui.painter()
+        .circle_stroke(center, 5.5, Stroke::new(1.0, color));
+    ui.painter().circle_filled(center + vec2(0.0, -2.3), 0.8, color);
+    ui.painter().line_segment(
+        [center + vec2(0.0, -0.3), center + vec2(0.0, 3.0)],
+        Stroke::new(1.2, color),
+    );
+    ui.painter().galley(
+        pos2(rect.left() + 20.0, rect.center().y - text.size().y * 0.5),
+        text,
+        color,
+    );
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 fn action_button(
