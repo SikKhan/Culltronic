@@ -111,6 +111,7 @@ def main():
         staging = Path(temporary) / stem
         staging.mkdir()
         shutil.copy2(binary, staging / binary.name)
+        shutil.copy2(ROOT / "crates/culltronic-ui/assets/branding/culltronic.ico", staging / "culltronic.ico")
         shutil.copy2(ROOT / "LICENSE", staging / "LICENSE")
         shutil.copy2(ROOT / "packaging" / "WINDOWS-README.txt", staging / "README.txt")
         notices = staging / "licenses"

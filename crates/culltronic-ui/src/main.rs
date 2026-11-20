@@ -43,6 +43,7 @@ fn run() -> anyhow::Result<()> {
     // Wayland untouched.
     let viewport = egui::ViewportBuilder::default()
         .with_title("Culltronic")
+        .with_icon(app_icon()?)
         .with_inner_size([1280.0, 800.0]);
     #[cfg(target_os = "macos")]
     let viewport = viewport
@@ -84,6 +85,17 @@ fn run() -> anyhow::Result<()> {
         (result, app_started)
     })?;
     Ok(())
+}
+
+fn app_icon() -> anyhow::Result<egui::IconData> {
+    let image = image::load_from_memory(include_bytes!("../assets/branding/culltronic-512.png"))?
+        .into_rgba8();
+    let (width, height) = image.dimensions();
+    Ok(egui::IconData {
+        rgba: image.into_raw(),
+        width,
+        height,
+    })
 }
 
 /// `culltronic-ui [FOLDER]` — an optional positional folder opens straight into the

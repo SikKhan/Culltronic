@@ -66,3 +66,7 @@ jobs:
           name: windows-portable
           path: dist/culltronic-*-windows-x86_64.zip*
           if-no-files-found: error
+
+      - name: Build macOS universal app bundle
+        if: runner.os == 'macOS'
+        run: bash packaging/build-macos.sh

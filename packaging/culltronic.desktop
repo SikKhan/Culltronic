@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Culltronic
+Comment=Photo culling for RAW photographs
+Exec=culltronic-ui
+Icon=culltronic
+Terminal=false
+Categories=Graphics;Photography;

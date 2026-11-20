@@ -13,7 +13,7 @@ culltronic-core = { path = "../culltronic-core" }
 # "persistence" lets eframe save/restore the window rect across restarts
 # (with monitor clamping) and the egui memory; see main.rs.
 eframe = { workspace = true, features = ["persistence"] }
-image.workspace = true
+image = { workspace = true, features = ["png"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -28,6 +28,9 @@ raw-window-handle = "0.6"
 
 [lints]
 workspace = true
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
 
 # RPM packaging metadata, built by `cargo generate-rpm` (see
 # packaging/build-packages.sh). The binary itself only hard-links
@@ -57,3 +60,13 @@ source = "../../LICENSE"
 dest = "/usr/share/licenses/culltronic/LICENSE"
 mode = "644"
 doc = true
+
+[[package.metadata.generate-rpm.assets]]
+source = "assets/branding/culltronic-512.png"
+dest = "/usr/share/icons/hicolor/512x512/apps/culltronic.png"
+mode = "644"
+
+[[package.metadata.generate-rpm.assets]]
+source = "../../packaging/culltronic.desktop"
+dest = "/usr/share/applications/culltronic.desktop"
+mode = "644"

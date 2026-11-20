@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="crates/culltronic-ui/assets/branding/culltronic-512.png" alt="Culltronic logo" width="180">
+</p>
+
 # Culltronic
 
 Formerly Cullr. The cache and index remain in the platform cache directory's
@@ -76,6 +80,10 @@ Build/package on Windows with Rust, MSVC build tools and Python 3 installed:
 See [the Windows validation checklist](docs/windows-validation.md) for the
 remaining clean-machine and interaction checks. CI smoke tests alone do not
 establish release readiness.
+
+### macOS universal app
+
+Download `culltronic-*-macos-universal.zip` from the [latest release](https://github.com/SikKhan/Culltronic/releases/latest), unzip it, and move `Culltronic.app` to Applications. The app bundle includes the Culltronic Dock icon and supports both Apple silicon and Intel Macs. Releases are ad hoc signed but not notarized, so macOS may show a first launch warning.
 
 ### Linux downloads
 

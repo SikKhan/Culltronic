@@ -2,7 +2,7 @@ name: Release
 
 # Cutting a release: bump [workspace.package] version in Cargo.toml,
 # commit, then tag and push the tag — this workflow builds the binary and
-# Linux packages and the Windows portable ZIP, then publishes them together.
+# Linux packages and portable Windows/macOS app bundles, then publishes them together.
 
 on:
   push:
@@ -95,9 +95,31 @@ jobs:
           path: dist/culltronic-*-windows-x86_64.zip*
           if-no-files-found: error
 
+  macos:
+    name: Build universal macOS app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check tag matches workspace version
+        run: |
+          version="$(sed -n 's/^version = \"\(.*\)\"$/\1/p' Cargo.toml | head -n1)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match workspace version ${version}"
+            exit 1
+          fi
+      - name: Build universal app bundle
+        run: bash packaging/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/culltronic-*-macos-universal.zip*
+          if-no-files-found: error
+
   publish:
-    name: Publish Linux and Windows downloads
-    needs: [linux, windows]
+    name: Publish Linux, Windows, and macOS downloads
+    needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

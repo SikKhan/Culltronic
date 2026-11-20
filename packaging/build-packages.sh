@@ -40,6 +40,9 @@ echo "==> culltronic $version (epoch $epoch)"
 deb="$tmp/deb"
 install -Dm755 "$binary" "$deb/usr/bin/culltronic-ui"
 install -Dm644 LICENSE "$deb/usr/share/doc/culltronic/copyright"
+install -Dm644 crates/culltronic-ui/assets/branding/culltronic-512.png \
+    "$deb/usr/share/icons/hicolor/512x512/apps/culltronic.png"
+install -Dm644 packaging/culltronic.desktop "$deb/usr/share/applications/culltronic.desktop"
 kib=$(du -sk "$deb/usr" | cut -f1)
 mkdir -p "$deb/DEBIAN"
 cat > "$deb/DEBIAN/control" <<EOF
@@ -76,6 +79,9 @@ rm -rf crates/culltronic-ui/target
 pkg="$tmp/pkg"
 install -Dm755 "$binary" "$pkg/usr/bin/culltronic-ui"
 install -Dm644 LICENSE "$pkg/usr/share/licenses/culltronic/LICENSE"
+install -Dm644 crates/culltronic-ui/assets/branding/culltronic-512.png \
+    "$pkg/usr/share/icons/hicolor/512x512/apps/culltronic.png"
+install -Dm644 packaging/culltronic.desktop "$pkg/usr/share/applications/culltronic.desktop"
 size=$(du -sb "$pkg/usr" | cut -f1)
 
 cat > "$pkg/.PKGINFO" <<EOF
